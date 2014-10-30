@@ -6,7 +6,7 @@
 # Folders
 _obj
 _test
-proxy
+mongor
 
 # Architecture specific extensions/prefixes
 *.[568vq]

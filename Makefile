@@ -5,7 +5,7 @@ setup:
 	go get gopkg.in/mgo.v2
 
 build:	
-	go build proxy.go
+	go build mongor.go
 
 execute: build	
-	go run proxy.go
+	go run mongor.go
