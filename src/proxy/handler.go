@@ -68,7 +68,6 @@ func HandleConnection(set *ReplSet, conn net.Conn) {
 
 	// For each entry open a tcp connection
 	for _, addr := range addresses {
-		// log.Printf("connecting to server %s", addr)
 		socket, err := net.DialTimeout("tcp", addr, duration)
 
 		if err != nil {
@@ -92,7 +91,6 @@ func HandleConnection(set *ReplSet, conn net.Conn) {
 
 		// We have an error, close socket and return
 		if err != nil || int32(n) != 4 {
-			// if err != nil {
 			log.Printf("failed to read enough bytes to establish message size from connection %v", err)
 			break
 		}
@@ -100,15 +98,12 @@ func HandleConnection(set *ReplSet, conn net.Conn) {
 		// Get the message size
 		messageSize := readInt32(messageSizeBytes)
 
-		// log.Printf("n = %s, messageSize = %s", n, messageSize)
-
 		// We know the size of the message, read the entire message into memory
 		wireMessage := make([]byte, messageSize-4)
 		n, err = conn.Read(wireMessage)
 
 		// We had an error during the reading of the message, close socket and return
 		if err != nil || int32(n) != (messageSize-4) {
-			// if err != nil {
 			log.Printf("failed to read enough bytes for wire protocol message from connection %v", err)
 			break
 		}
@@ -133,7 +128,6 @@ func HandleConnection(set *ReplSet, conn net.Conn) {
 
 			// We have an error, close socket and return
 			if err != nil || int32(n) != 4 {
-				// if err != nil {
 				log.Printf("failed to read enough bytes to establish message size from connection %v", err)
 				break
 			}
@@ -146,7 +140,6 @@ func HandleConnection(set *ReplSet, conn net.Conn) {
 
 			// We have an error, close socket and return
 			if err != nil || int32(n) != (responseMessageSize-4) {
-				// if err != nil {
 				log.Printf("failed to read enough bytes to establish message size from connection %v", err)
 				break
 			}
