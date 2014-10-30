@@ -62,9 +62,6 @@ func HandleConnection(set *ReplSet, conn net.Conn) {
 		return
 	}
 
-	// Log ismaster
-	// log.Printf("ismaster %+v", isMaster)
-
 	// Create connection context
 	context := &ConnectionContext{}
 	context.Secondaries = make([]net.Conn, 0)
@@ -79,9 +76,6 @@ func HandleConnection(set *ReplSet, conn net.Conn) {
 			continue
 		}
 
-		// Connected to the server
-		// log.Printf("connected to server %s", addr)
-
 		// Do we have a primary
 		if addr == isMaster.Primary {
 			log.Printf("primary found at %s", addr)
@@ -91,11 +85,8 @@ func HandleConnection(set *ReplSet, conn net.Conn) {
 		}
 	}
 
-	// socket, _ := set.Session.AcquireSocket(false)
-
 	// Start reading of messages
 	for {
-		log.Print("================== read message")
 		messageSizeBytes := make([]byte, 4)
 		n, err := conn.Read(messageSizeBytes)
 
@@ -123,64 +114,23 @@ func HandleConnection(set *ReplSet, conn net.Conn) {
 		}
 
 		// Let's unpack the wire message header
-		requestId := readInt32(wireMessage[0:4])
-		responseTo := readInt32(wireMessage[4:8])
 		opCode := readInt32(wireMessage[8:12])
 
 		// Cluster connection
 		connection := context.Primary
-		// connection := set.Session.MasterSocket.Conn
-		// socket.StopReadLoop()
-		// connection := socket.Conn
 
-		// log.Print("write message to primary")
-		// Just write to the primary right now
-
-		log.Print("written out the message")
 		// If it's write commands we need to direct it to the primary
 		if opCode == OP_INSERT || opCode == OP_UPDATE || opCode == OP_DELETE || opCode == OP_KILL_CURSORS {
-			log.Print("INSERT")
-			log.Printf("requestId = %d", requestId)
-			log.Printf("responseTo = %d", responseTo)
-
-			// socket.AddReplyFunction(uint32(requestId), func(header []byte, data []byte) {
-			// 	log.Printf("RECEIVED DATA")
-			// 	log.Printf("%v", header)
-			// 	log.Printf("%v", data)
-
-			// 	conn.Write(append(header, data...))
-
-			// 	log.Print("WRITE 6")
-			// 	// socket.Release()
-			// })
-
-			// socket.
-			// connection.SetWriteDeadline(time.Now().Add(2))
-			connection.Write(append(messageSizeBytes, wireMessage...))
-			// socket.Release()
+			connection.Write(messageSizeBytes)
+			connection.Write(wireMessage)
 		} else if opCode == OP_GET_MORE || opCode == OP_QUERY {
-			log.Print("READ")
-
-			// socket.AddReplyFunction(uint32(requestId), func(header []byte, data []byte) {
-			// 	log.Printf("RECEIVED DATA")
-			// 	log.Printf("%v", readInt32(header[0:4]))
-			// 	log.Printf("%v", readInt32(data[0:4]))
-			// 	log.Printf("%v", (len(header) + len(data)))
-
-			// 	conn.Write(append(header, data...))
-			// 	// conn.Write(data)
-
-			// 	// log.Print("READ 6")
-			// })
-
-			connection.Write(append(messageSizeBytes, wireMessage...))
-			// socket.Release()
+			connection.Write(messageSizeBytes)
+			connection.Write(wireMessage)
 
 			// Read the response from the connection
 			responseMessageSizeBytes := make([]byte, 4)
 			n, err = connection.Read(responseMessageSizeBytes)
 
-			log.Print("READ 1")
 			// We have an error, close socket and return
 			if err != nil || int32(n) != 4 {
 				// if err != nil {
@@ -188,19 +138,11 @@ func HandleConnection(set *ReplSet, conn net.Conn) {
 				break
 			}
 
-			log.Print("READ 2")
-
 			responseMessageSize := readInt32(responseMessageSizeBytes)
 			responseMessageBytes := make([]byte, responseMessageSize-4)
 
-			log.Print("READ 3")
-
-			// log.Printf("read message from primary of %v bytes", responseMessageSize)
-
 			// Read the rest of the response
 			n, err = connection.Read(responseMessageBytes)
-
-			log.Print("READ 4")
 
 			// We have an error, close socket and return
 			if err != nil || int32(n) != (responseMessageSize-4) {
@@ -209,15 +151,9 @@ func HandleConnection(set *ReplSet, conn net.Conn) {
 				break
 			}
 
-			log.Print("READ 5")
-
 			// Write message to initial connection
-			conn.Write(append(responseMessageSizeBytes, responseMessageBytes...))
-			// conn.Write(responseMessageSizeBytes)
-			// conn.Write(responseMessageBytes)
-
-			// log.Print("READ 6")
-			// socket.Release()
+			conn.Write(responseMessageSizeBytes)
+			conn.Write(responseMessageBytes)
 		} else {
 			log.Fatalf("opcode %v not supported", opCode)
 			break
