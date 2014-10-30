@@ -29,18 +29,18 @@ func main() {
             monitoring or who need to centralize connections due to single
             threaded application platforms`,
 		Run: func(cmd *cobra.Command, args []string) {
-			// Create ReplSet
-			set := proxy.NewReplSet(uri, time.Duration(timeout))
-			// Attempt to Connect to the replicaset
-			err := set.Start()
-			if err != nil {
-				log.Fatalf("failed to connect to replicaset %s", err)
-			}
-
 			// Listen to the tcp socket
 			ln, err := net.Listen("tcp", ":50000")
 			if err != nil {
 				log.Fatalf("%s", err)
+			}
+
+			// Create ReplSet
+			set := proxy.NewReplSet(uri, time.Duration(timeout))
+			// Attempt to Connect to the replicaset
+			err = set.Start()
+			if err != nil {
+				log.Fatalf("failed to connect to replicaset %s", err)
 			}
 
 			// Accept incoming socket connection
@@ -60,6 +60,6 @@ func main() {
 	timeout = 10000
 
 	// Set up the uri flag
-	proxyCmd.Flags().StringVarP(&uri, "uri", "u", "mongodb://localhost:31000/admin", "replicaset connection uri")
+	proxyCmd.Flags().StringVarP(&uri, "uri", "u", "mongodb://localhost:31000/admin?maxPoolSize=1", "replicaset connection uri")
 	proxyCmd.Execute()
 }
