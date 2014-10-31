@@ -12,6 +12,8 @@ mongor
 *.[568vq]
 [568vq].out
 
+node_modules
+
 *.cgo1.go
 *.cgo2.c
 _cgo_defun.c

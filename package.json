@@ -1,0 +1,25 @@
+{
+  "name": "proxy",
+  "version": "1.0.0",
+  "description": "proxy =====",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "mongodb": "~2.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/christkv/proxy.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/christkv/proxy/issues"
+  },
+  "homepage": "https://github.com/christkv/proxy"
+}
