@@ -57,6 +57,9 @@ func addInt64(b []byte, i int64) []byte {
 }
 
 func HandleConnection(set *ReplSet, conn net.Conn) {
+	var isMasterBytes = []byte("isMaster")
+	var ismasterBytes = []byte("ismaster")
+
 	// Set up socket connections
 	addresses := set.Session.LiveServers()
 
@@ -129,12 +132,11 @@ func HandleConnection(set *ReplSet, conn net.Conn) {
 		connection := context.Primary
 
 		// Determine if this is the ismaster command from a driver
-		if bytes.IndexAny(wireMessage, "isMaster") != -1 || bytes.IndexAny(wireMessage, "ismaster") != -1 {
-			log.Printf("Got isMaster command call")
+		if bytes.Index(wireMessage, isMasterBytes) != -1 || bytes.Index(wireMessage, ismasterBytes) != -1 {
+			log.Printf("Got isMaster command call at %v [%v] %v", bytes.Index(wireMessage, ismasterBytes), wireMessage, string(wireMessage[:n]))
 
 			// Header fields
 			requestId := wireMessage[0:4]
-			// responseTo := wireMessage[4:8]
 
 			// Create command
 			var ismasterCmd = &isMasterResult{
@@ -147,30 +149,11 @@ func HandleConnection(set *ReplSet, conn net.Conn) {
 				LocalTime:           isMaster.LocalTime,
 			}
 
-			// Serialize to bson
-			data, err := bson.Marshal(ismasterCmd)
+			ismasterCommandBytes, err := CreateResponseMessage(requestId, ismasterCmd)
 			if err != nil {
-				log.Printf("failed to serialize ismaster result %v", err)
+				log.Printf("failed to create ismaster command %v", err)
 				break
 			}
-
-			// Total length
-			msgLength := len(data) + 16 + 20
-
-			// Create the reponse message
-			ismasterCommandBytes := make([]byte, 0)
-			// 16 byte header
-			ismasterCommandBytes = addInt32(ismasterCommandBytes, int32(msgLength))
-			ismasterCommandBytes = append(ismasterCommandBytes, []byte{0, 0, 0, 0}...)
-			ismasterCommandBytes = append(ismasterCommandBytes, requestId...)
-			ismasterCommandBytes = addInt32(ismasterCommandBytes, int32(OP_REPLY))
-			// OP REPLY FIELDS
-			ismasterCommandBytes = append(ismasterCommandBytes, []byte{0, 0, 0, 0}...)
-			ismasterCommandBytes = append(ismasterCommandBytes, []byte{0, 0, 0, 0, 0, 0, 0, 0}...)
-			ismasterCommandBytes = append(ismasterCommandBytes, []byte{0, 0, 0, 0}...)
-			ismasterCommandBytes = addInt32(ismasterCommandBytes, int32(1))
-			ismasterCommandBytes = append(ismasterCommandBytes, data...)
-			log.Printf("ismaster result %v = %v", len(ismasterCommandBytes), ismasterCommandBytes)
 
 			// Write ismaster response
 			conn.Write(ismasterCommandBytes)
