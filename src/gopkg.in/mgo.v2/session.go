@@ -504,6 +504,15 @@ func (s *Session) LiveServers() (addrs []string) {
 	return addrs
 }
 
+// LiveMasters returns a list of server addresses which are
+// currently known to be alive.
+func (s *Session) LiveMasters() (addrs []string) {
+	s.m.RLock()
+	addrs = s.cluster().LiveMasters()
+	s.m.RUnlock()
+	return addrs
+}
+
 // DB returns a value representing the named database. If name
 // is empty, the database name provided in the dialed URL is
 // used instead. If that is also empty, "test" is used as a

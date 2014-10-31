@@ -111,6 +111,15 @@ func (cluster *mongoCluster) LiveServers() (servers []string) {
 	return servers
 }
 
+func (cluster *mongoCluster) LiveMasters() (servers []string) {
+	cluster.RLock()
+	for _, serv := range cluster.masters.Slice() {
+		servers = append(servers, serv.Addr)
+	}
+	cluster.RUnlock()
+	return servers
+}
+
 func (cluster *mongoCluster) removeServer(server *mongoServer) {
 	cluster.Lock()
 	cluster.masters.Remove(server)
