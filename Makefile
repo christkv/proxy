@@ -10,3 +10,6 @@ build:
 
 execute: build	
 	go run mongor.go
+
+run_tests:
+	go test -v mongo -run Serialization
