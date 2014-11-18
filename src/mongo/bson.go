@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 )
 
 type ObjectId struct {
@@ -58,6 +59,13 @@ func calculateElementSize(element interface{}) (int, error) {
 	switch element := element.(type) {
 	default:
 		return size, errors.New(fmt.Sprintf("unsupported type %T", element))
+	case []interface{}:
+		elementSize, err := calculateArraySize(element)
+		if err != nil {
+			return size, err
+		}
+
+		size = size + elementSize
 	case map[string]interface{}:
 		elementSize, err := calculateObjectSize(element)
 		if err != nil {
@@ -75,7 +83,7 @@ func calculateElementSize(element interface{}) (int, error) {
 		size = size + 4
 	case int64:
 		size = size + 4
-	case Binary:
+	case *Binary:
 		size = size + 4 + 1 + len(element.Data)
 	case ObjectId:
 		size = size + 12
@@ -92,6 +100,27 @@ func calculateElementSize(element interface{}) (int, error) {
 		size = size
 	case Max:
 		size = size
+	}
+
+	return size, nil
+}
+
+func calculateArraySize(array []interface{}) (int, error) {
+	size := 5
+
+	// Iterate over all the key values
+	for index, value := range array {
+		indexStr := strconv.Itoa(index)
+		// Add the key size
+		size = size + len(indexStr) + 1 + 1
+		// Add the size of the actual element
+		elementSize, err := calculateElementSize(value)
+
+		if err != nil {
+			return size, err
+		}
+
+		size = size + elementSize
 	}
 
 	return size, nil
@@ -153,6 +182,14 @@ func packElement(key string, value interface{}, buffer []byte, index int) (int, 
 		copy(buffer[index+5:], stringBytes[:])
 		buffer[index+5+len(stringBytes)] = 0x00
 		index = index + 4 + len(stringBytes) + 1 + 1
+	case []interface{}:
+		log.Printf("array serialize %v", index)
+		// Set the type of be document
+		buffer[originalIndex] = 0x04
+		// Get the final values
+		in, err := serializeArray(buffer, index+1, element)
+		// Serialize the object
+		return in + 1, err
 	case map[string]interface{}:
 		log.Printf("document serialize %v", index)
 		// Set the type of be document
@@ -161,6 +198,17 @@ func packElement(key string, value interface{}, buffer []byte, index int) (int, 
 		in, err := serializeObject(buffer, index+1, element)
 		// Serialize the object
 		return in + 1, err
+	case *Binary:
+		log.Printf("binary serialize %v", index)
+		// Set the type of be document
+		buffer[originalIndex] = 0x05
+		// Set the size of the binary
+		writeU32(buffer, index+1, uint32(len(element.Data)))
+		buffer[index+5] = element.SubType
+		// Write binary
+		copy(buffer[index+6:], element.Data[:])
+		// Return the length
+		return index + len(element.Data) + 5 + 1, nil
 	}
 
 	// Return the index
@@ -173,6 +221,28 @@ func serializeObject(buffer []byte, index int, document map[string]interface{}) 
 	// Iterate over all the key values
 	for key, value := range document {
 		in, err := packElement(key, value, buffer, i)
+		if err != nil {
+			return i, err
+		}
+		i = in
+	}
+
+	// Final object size
+	objectSize := (i - index + 5 - 4)
+
+	// The final object size (the encoded length + terminating 0)
+	writeU32(buffer, index, uint32(objectSize))
+	// Return no error
+	return i, nil
+}
+
+func serializeArray(buffer []byte, index int, array []interface{}) (int, error) {
+	i := index + 4
+
+	// Iterate over all the key values
+	for index, value := range array {
+		indexStr := strconv.Itoa(index)
+		in, err := packElement(indexStr, value, buffer, i)
 		if err != nil {
 			return i, err
 		}
