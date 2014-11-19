@@ -4,10 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
+	"reflect"
 	"strconv"
+	"time"
 )
 
 type ObjectId struct {
+	Id []byte
 }
 
 type Binary struct {
@@ -28,6 +32,11 @@ type Date struct {
 	Value int64
 }
 
+type RegExp struct {
+	Pattern string
+	Options string
+}
+
 type Timestamp struct {
 	Value int64
 }
@@ -45,11 +54,22 @@ func Parse(bson []byte) (interface{}, error) {
 	return nil, nil
 }
 
-func writeU32(buffer []byte, index int, size uint32) {
-	buffer[index+3] = byte((size >> 24) & 0xff)
-	buffer[index+2] = byte((size >> 16) & 0xff)
-	buffer[index+1] = byte((size >> 8) & 0xff)
-	buffer[index] = byte(size & 0xff)
+func writeU32(buffer []byte, index int, value uint32) {
+	buffer[index+3] = byte((value >> 24) & 0xff)
+	buffer[index+2] = byte((value >> 16) & 0xff)
+	buffer[index+1] = byte((value >> 8) & 0xff)
+	buffer[index] = byte(value & 0xff)
+}
+
+func writeU64(buffer []byte, index int, value uint64) {
+	buffer[index+7] = byte((value >> 56) & 0xff)
+	buffer[index+6] = byte((value >> 48) & 0xff)
+	buffer[index+5] = byte((value >> 40) & 0xff)
+	buffer[index+4] = byte((value >> 32) & 0xff)
+	buffer[index+3] = byte((value >> 24) & 0xff)
+	buffer[index+2] = byte((value >> 16) & 0xff)
+	buffer[index+1] = byte((value >> 8) & 0xff)
+	buffer[index] = byte(value & 0xff)
 }
 
 func calculateElementSize(element interface{}) (int, error) {
@@ -80,22 +100,42 @@ func calculateElementSize(element interface{}) (int, error) {
 	case uint32:
 		size = size + 4
 	case uint64:
-		size = size + 4
+		size = size + 8
 	case int64:
-		size = size + 4
+		size = size + 8
+	case float32:
+		size = size + 8
+	case float64:
+		size = size + 8
+	case nil:
+		size = size
 	case *Binary:
 		size = size + 4 + 1 + len(element.Data)
-	case ObjectId:
+	case bool:
+		size = size + 1
+	case []byte:
+		size = size + 4 + 1 + len(element)
+	case *ObjectId:
 		size = size + 12
-	case Javascript:
-		size = size + len(element.Code)
-	case JavascriptWScope:
+	case *RegExp:
+		size = size + len(element.Pattern) + 1 + len(element.Options) + 1
+	case *Date:
+		size = size + 8
+	case *Timestamp:
+		size = size + 8
+	case time.Time:
+		size = size + 8
+	case *time.Time:
+		size = size + 8
+	case *Javascript:
+		size = size + len(element.Code) + 4 + 1
+	case *JavascriptWScope:
 		elementSize, err := calculateObjectSize(element.Scope)
 		if err != nil {
 			return size, err
 		}
 
-		size = size + len(element.Code) + elementSize
+		size = size + len(element.Code) + elementSize + 4 + 1 + 4
 	case Min:
 		size = size
 	case Max:
@@ -174,6 +214,75 @@ func packElement(key string, value interface{}, buffer []byte, index int) (int, 
 		buffer[originalIndex] = 0x10
 		writeU32(buffer, index+1, element)
 		index = index + 5
+	case int64:
+		log.Printf("int64 serialize")
+		buffer[originalIndex] = 0x12
+		writeU64(buffer, index+1, uint64(element))
+		index = index + 9
+	case uint64:
+		log.Printf("uint64 serialize")
+		buffer[originalIndex] = 0x12
+		writeU64(buffer, index+1, element)
+		index = index + 9
+	case bool:
+		log.Printf("bool serialize")
+		buffer[originalIndex] = 0x08
+		if element {
+			buffer[index+1] = 0x01
+		} else {
+			buffer[index+1] = 0x00
+		}
+		index = index + 2
+	case float32:
+		log.Printf("float32 serialize")
+		// int64(math.Float64bits(v)
+		buffer[originalIndex] = 0x01
+		// Get reflection of the value
+		reflectType := reflect.ValueOf(element)
+		// Convert 32 bit float to string
+		floatString := strconv.FormatFloat(reflectType.Float(), 'g', -1, 32)
+		// Parse string as 64bit float
+		value, _ := strconv.ParseFloat(floatString, 64)
+		// Write the float as an uint64
+		writeU64(buffer, index+1, math.Float64bits(value))
+		index = index + 9
+	case float64:
+		log.Printf("float64 serialize")
+		buffer[originalIndex] = 0x01
+		writeU64(buffer, index+1, math.Float64bits(element))
+		index = index + 9
+	case *RegExp:
+		log.Printf("regexp serialize")
+		buffer[originalIndex] = 0x0b
+		copy(buffer[index+1:], []byte(element.Pattern))
+		index = index + 1 + len(element.Pattern)
+		buffer[index] = 0x00
+		copy(buffer[index+1:], []byte(element.Options))
+		index = index + 1 + len(element.Options) + 1
+	case *Timestamp:
+		log.Printf("timestamp serialize")
+		buffer[originalIndex] = 0x11
+		writeU64(buffer, index+1, uint64(element.Value))
+		index = index + 9
+	case *Date:
+		log.Printf("date serialize")
+		buffer[originalIndex] = 0x09
+		writeU64(buffer, index+1, uint64(element.Value))
+		index = index + 9
+	case *time.Time:
+		log.Printf("*time.Time serialize")
+		buffer[originalIndex] = 0x09
+		writeU64(buffer, index+1, uint64(element.Unix()))
+		index = index + 9
+	case time.Time:
+		log.Printf("time.Time serialize")
+		buffer[originalIndex] = 0x09
+		writeU64(buffer, index+1, uint64(element.Unix()))
+		index = index + 9
+	case nil:
+		log.Printf("nil serialize")
+		buffer[originalIndex] = 0x0a
+		index = index + 1
 	case string:
 		log.Printf("string serialize")
 		buffer[originalIndex] = 0x02
@@ -198,6 +307,27 @@ func packElement(key string, value interface{}, buffer []byte, index int) (int, 
 		in, err := serializeObject(buffer, index+1, element)
 		// Serialize the object
 		return in + 1, err
+	case *ObjectId:
+		log.Printf("objectid serialize %v", index)
+		if len(element.Id) != 12 {
+			return 0, errors.New("ObjectId must be a 12 byte array")
+		}
+
+		// Set the type of be document
+		buffer[originalIndex] = 0x07
+		copy(buffer[index+1:], element.Id)
+		return index + len(element.Id) + 1, nil
+	case []byte:
+		log.Printf("[]byte serialize %v", index)
+		// Set the type of be document
+		buffer[originalIndex] = 0x05
+		// Set the size of the binary
+		writeU32(buffer, index+1, uint32(len(element)))
+		buffer[index+5] = 0x00
+		// Write binary
+		copy(buffer[index+6:], element[:])
+		// Return the length
+		return index + len(element) + 5 + 1, nil
 	case *Binary:
 		log.Printf("binary serialize %v", index)
 		// Set the type of be document
@@ -209,6 +339,36 @@ func packElement(key string, value interface{}, buffer []byte, index int) (int, 
 		copy(buffer[index+6:], element.Data[:])
 		// Return the length
 		return index + len(element.Data) + 5 + 1, nil
+	case *Javascript:
+		log.Printf("javascript no scope serialize %v", index)
+		// Set the type of be document
+		buffer[originalIndex] = 0x0d
+		stringBytes := []byte(element.Code)
+		writeU32(buffer, index+1, uint32(len(stringBytes)+1))
+		copy(buffer[index+5:], stringBytes[:])
+		buffer[index+5+len(stringBytes)] = 0x00
+		index = index + 4 + len(stringBytes) + 1 + 1
+	case *JavascriptWScope:
+		log.Printf("javascript scope serialize %v", index)
+		buffer[originalIndex] = 0x0f
+		stringBytes := []byte(element.Code)
+		// Skip the length
+		lengthIndex := index + 1
+		index = index + 4
+
+		// Write javascript string
+		writeU32(buffer, index+1, uint32(len(stringBytes)+1))
+		copy(buffer[index+5:], stringBytes[:])
+		buffer[index+5+len(stringBytes)] = 0x00
+		index = index + 4 + len(stringBytes) + 1
+
+		// Serialize the scope
+		in, err := serializeObject(buffer, index+1, element.Scope)
+		index = index + in
+
+		// Write the length
+		writeU32(buffer, lengthIndex, uint32(in-lengthIndex+1))
+		return in + 1, err
 	}
 
 	// Return the index
