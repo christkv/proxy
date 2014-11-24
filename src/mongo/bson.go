@@ -1,6 +1,7 @@
 package mongo
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"log"
@@ -87,7 +88,7 @@ func calculateElementSize(element interface{}) (int, error) {
 
 		size = size + elementSize
 	case map[string]interface{}:
-		elementSize, err := calculateObjectSize(element)
+		elementSize, err := CalculateObjectSize(element)
 		if err != nil {
 			return size, err
 		}
@@ -130,7 +131,7 @@ func calculateElementSize(element interface{}) (int, error) {
 	case *Javascript:
 		size = size + len(element.Code) + 4 + 1
 	case *JavascriptWScope:
-		elementSize, err := calculateObjectSize(element.Scope)
+		elementSize, err := CalculateObjectSize(element.Scope)
 		if err != nil {
 			return size, err
 		}
@@ -153,26 +154,6 @@ func calculateArraySize(array []interface{}) (int, error) {
 		indexStr := strconv.Itoa(index)
 		// Add the key size
 		size = size + len(indexStr) + 1 + 1
-		// Add the size of the actual element
-		elementSize, err := calculateElementSize(value)
-
-		if err != nil {
-			return size, err
-		}
-
-		size = size + elementSize
-	}
-
-	return size, nil
-}
-
-func calculateObjectSize(document map[string]interface{}) (int, error) {
-	size := 5
-
-	// Iterate over all the key values
-	for key, value := range document {
-		// Add the key size
-		size = size + len(key) + 1 + 1
 		// Add the size of the actual element
 		elementSize, err := calculateElementSize(value)
 
@@ -418,9 +399,29 @@ func serializeArray(buffer []byte, index int, array []interface{}) (int, error) 
 	return i, nil
 }
 
+func CalculateObjectSize(document map[string]interface{}) (int, error) {
+	size := 5
+
+	// Iterate over all the key values
+	for key, value := range document {
+		// Add the key size
+		size = size + len(key) + 1 + 1
+		// Add the size of the actual element
+		elementSize, err := calculateElementSize(value)
+
+		if err != nil {
+			return size, err
+		}
+
+		size = size + elementSize
+	}
+
+	return size, nil
+}
+
 func Serialize(document map[string]interface{}) ([]byte, error) {
 	// Calculate the size of the document
-	size, err := calculateObjectSize(document)
+	size, err := CalculateObjectSize(document)
 	if err != nil {
 		return nil, err
 	}
@@ -438,4 +439,99 @@ func Serialize(document map[string]interface{}) ([]byte, error) {
 
 	// Return the bson
 	return bson, nil
+}
+
+func readUInt32(buffer []byte, index int) uint32 {
+	return (uint32(buffer[index]) << 0) |
+		(uint32(buffer[index+1]) << 8) |
+		(uint32(buffer[index+2]) << 16) |
+		(uint32(buffer[index+3]) << 24)
+}
+
+func deserializeObject(bson []byte, index int) (map[string]interface{}, error) {
+	// Create document node
+	document := make(map[string]interface{})
+
+	// Decode the length of the buffer
+	documentSize := readUInt32(bson, index)
+	// initialIndex
+	endIndex := index + int(documentSize)
+
+	// Special case of an empty document
+	if documentSize == 5 {
+		return document, nil
+	}
+
+	// Skip the size document
+	index = index + 4
+
+	// Start decoding the fields
+	for index < endIndex-1 {
+		// Get the bson type
+		bsonType := bson[index]
+
+		// Skip bson type
+		index = index + 1
+
+		// Read the cstring
+		strindex := bytes.IndexByte(bson[index:], 0x00)
+
+		// No 0 byte found error out
+		if strindex == -1 {
+			return nil, errors.New("could not decode field name, possibly corrupt bson")
+		}
+
+		// cast byte array to string
+		fieldName := string(bson[index : index+strindex])
+		// Adjust index with the string length
+		index = index + strindex + 1
+
+		log.Printf("=========== fieldname :: %v type :: %v", fieldName, bsonType)
+
+		// Switch on type to decode
+		switch bsonType {
+		default:
+			return nil, errors.New(fmt.Sprintf("type [%v] is not a legal bson type", bson[index]))
+		case 0x00:
+			index = index + 1
+			break
+		case 0x10:
+			// Read the int
+			document[fieldName] = int32(readUInt32(bson, index))
+			// Skip the int32 field
+			index = index + 4
+		case 0x02:
+			// Read the string size
+			stringSize := int(readUInt32(bson, index))
+			// Skip string size
+			index = index + 4
+			// Add the field
+			document[fieldName] = string(bson[index : index+stringSize-1])
+			// Skip last null byte and size of string
+			index = index + stringSize
+		}
+	}
+
+	// Adjust for last byte
+	index = index + 1
+	// Return the document
+	return document, nil
+}
+
+func Deserialize(bson []byte) (map[string]interface{}, error) {
+	// Do some basic authentication on the size
+	if len(bson) < 5 {
+		return nil, errors.New(fmt.Sprintf("Passed in byte slice [%v] is smaller than the minimum size of 5", len(bson)))
+	}
+
+	// Decode the length of the buffer
+	documentSize := readUInt32(bson, 0)
+
+	// Ensure we have all the bytes
+	if documentSize != uint32(len(bson)) {
+		return nil, errors.New(fmt.Sprintf("Passed in byte slice [%v] is different in size than encoded bson document length [%v]", len(bson), documentSize))
+	}
+
+	// We can start decoding the document
+	return deserializeObject(bson, 0)
 }

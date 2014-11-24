@@ -2,6 +2,7 @@ package mongo
 
 import (
 	"bytes"
+	// "strings"
 	"testing"
 	"time"
 )
@@ -25,6 +26,42 @@ func TestSimpleEmptyDocumentSerialization(t *testing.T) {
 	if bytes.Compare(bson, expectedBuffer) != 0 {
 		t.Errorf("Illegal BSON returned")
 	}
+
+	// Deserialize the object
+	obj, err := Deserialize(expectedBuffer)
+	if err != nil {
+		t.Errorf("Failed to deserialize the bson array")
+	}
+
+	t.Logf("[%v]", obj)
+
+	if len(obj) != 0 {
+		t.Errorf("Failed to deserialize the map")
+	}
+}
+
+func validateIntField(t *testing.T, obj map[string]interface{}, name string, value int32) {
+	switch elem := obj[name].(type) {
+	case int32:
+		if elem != value {
+			t.Fatalf("Failed int comparison [%v] != [%v]", elem, value)
+		}
+	}
+}
+
+func validateStringField(t *testing.T, obj map[string]interface{}, name string, value string) {
+	switch elem := obj[name].(type) {
+	case string:
+		if elem != value {
+			t.Fatalf("Failed int comparison [%v] != [%v]", elem, value)
+		}
+	}
+}
+
+func validateObjectSize(t *testing.T, obj map[string]interface{}, size int) {
+	if len(obj) != size {
+		t.Fatalf("Failed to deserialize the map")
+	}
 }
 
 func TestSimpleInt32Serialization(t *testing.T) {
@@ -47,6 +84,15 @@ func TestSimpleInt32Serialization(t *testing.T) {
 	if bytes.Compare(bson, expectedBuffer) != 0 {
 		t.Errorf("Illegal BSON returned")
 	}
+
+	// Deserialize the object
+	obj, err := Deserialize(expectedBuffer)
+	if err != nil {
+		t.Errorf("Failed to deserialize the bson array")
+	}
+
+	validateObjectSize(t, obj, 1)
+	validateIntField(t, obj, "int", int32(10))
 }
 
 func TestSimpleStringSerialization(t *testing.T) {
@@ -69,6 +115,15 @@ func TestSimpleStringSerialization(t *testing.T) {
 	if bytes.Compare(bson, expectedBuffer) != 0 {
 		t.Errorf("Illegal BSON returned")
 	}
+
+	// Deserialize the object
+	obj, err := Deserialize(expectedBuffer)
+	if err != nil {
+		t.Errorf("Failed to deserialize the bson array")
+	}
+
+	validateObjectSize(t, obj, 1)
+	validateStringField(t, obj, "string", "hello world")
 }
 
 func TestSimpleStringAndIntSerialization(t *testing.T) {
@@ -93,6 +148,16 @@ func TestSimpleStringAndIntSerialization(t *testing.T) {
 	if bytes.Compare(bson, expectedBuffer) != 0 {
 		t.Errorf("Illegal BSON returned")
 	}
+
+	// Deserialize the object
+	obj, err := Deserialize(expectedBuffer)
+	if err != nil {
+		t.Errorf("Failed to deserialize the bson array")
+	}
+
+	validateObjectSize(t, obj, 2)
+	validateStringField(t, obj, "string", "hello world")
+	validateIntField(t, obj, "int", 10)
 }
 
 func TestSimpleNestedDocumentSerialization(t *testing.T) {
