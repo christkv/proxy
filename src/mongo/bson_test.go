@@ -204,7 +204,7 @@ func TestSimpleArraySerialization(t *testing.T) {
 	}
 
 	validateObjectSize(t, obj, 1)
-	a, _ := obj.GetArray("array")
+	a, _ := obj.FieldAsArray("array")
 	validateString(t, a[0], "a")
 	validateString(t, a[1], "b")
 }
@@ -277,7 +277,7 @@ func TestMixedDocumentSerialization(t *testing.T) {
 	}
 
 	validateObjectSize(t, obj, 1)
-	a, _ := obj.GetArray("array")
+	a, _ := obj.FieldAsArray("array")
 	validateBinary(t, a[0], bin)
 	validateIntField(t, toDocument(t, a[1]), "a", 1)
 }
@@ -447,6 +447,16 @@ func TestDateAndTimeSerialization(t *testing.T) {
 	if bytes.Compare(bson, expectedBuffer) != 0 {
 		t.Errorf("Illegal BSON returned")
 	}
+
+	// Deserialize the object
+	obj, err := Deserialize(expectedBuffer)
+	if err != nil {
+		t.Errorf("Failed to deserialize the bson array")
+	}
+
+	validateObjectSize(t, obj, 2)
+	validateTimeField(t, obj, "one", time.Unix(100000, 0))
+	validateTimeField(t, obj, "two", time.Unix(100000, 0))
 }
 
 func TestBufferSerialization(t *testing.T) {
@@ -454,7 +464,8 @@ func TestBufferSerialization(t *testing.T) {
 
 	// Actual document
 	document := NewDocument()
-	document.Add("b", []byte("hello world"))
+	buffer := []byte("hello world")
+	document.Add("b", buffer)
 	bson, err := Serialize(document)
 
 	t.Logf("[%v]", len(bson))
@@ -472,6 +483,15 @@ func TestBufferSerialization(t *testing.T) {
 	if bytes.Compare(bson, expectedBuffer) != 0 {
 		t.Errorf("Illegal BSON returned")
 	}
+
+	// Deserialize the object
+	obj, err := Deserialize(expectedBuffer)
+	if err != nil {
+		t.Errorf("Failed to deserialize the bson array")
+	}
+
+	validateObjectSize(t, obj, 1)
+	validateBufferField(t, obj, "b", buffer)
 }
 
 func TestTimestampSerialization(t *testing.T) {
@@ -497,6 +517,15 @@ func TestTimestampSerialization(t *testing.T) {
 	if bytes.Compare(bson, expectedBuffer) != 0 {
 		t.Errorf("Illegal BSON returned")
 	}
+
+	// Deserialize the object
+	obj, err := Deserialize(expectedBuffer)
+	if err != nil {
+		t.Errorf("Failed to deserialize the bson array")
+	}
+
+	validateObjectSize(t, obj, 1)
+	validateTimestampField(t, obj, "t", &Timestamp{100000})
 }
 
 func TestInt64AndUInt64Serialization(t *testing.T) {
@@ -523,6 +552,16 @@ func TestInt64AndUInt64Serialization(t *testing.T) {
 	if bytes.Compare(bson, expectedBuffer) != 0 {
 		t.Errorf("Illegal BSON returned")
 	}
+
+	// Deserialize the object
+	obj, err := Deserialize(expectedBuffer)
+	if err != nil {
+		t.Errorf("Failed to deserialize the bson array")
+	}
+
+	validateObjectSize(t, obj, 2)
+	validateInt64Field(t, obj, "o", int64(-1))
+	validateUInt64Field(t, obj, "t", uint64(100000))
 }
 
 func TestFloat64Serialization(t *testing.T) {
@@ -548,6 +587,15 @@ func TestFloat64Serialization(t *testing.T) {
 	if bytes.Compare(bson, expectedBuffer) != 0 {
 		t.Errorf("Illegal BSON returned")
 	}
+
+	// Deserialize the object
+	obj, err := Deserialize(expectedBuffer)
+	if err != nil {
+		t.Errorf("Failed to deserialize the bson array")
+	}
+
+	validateObjectSize(t, obj, 1)
+	validateFloat64Field(t, obj, "o", float64(3.14))
 }
 
 func TestFloat32Serialization(t *testing.T) {
@@ -573,6 +621,15 @@ func TestFloat32Serialization(t *testing.T) {
 	if bytes.Compare(bson, expectedBuffer) != 0 {
 		t.Errorf("Illegal BSON returned")
 	}
+
+	// Deserialize the object
+	obj, err := Deserialize(expectedBuffer)
+	if err != nil {
+		t.Errorf("Failed to deserialize the bson array")
+	}
+
+	validateObjectSize(t, obj, 1)
+	validateFloat32Field(t, obj, "o", float32(-1.4))
 }
 
 func TestBooleanSerialization(t *testing.T) {
@@ -599,6 +656,16 @@ func TestBooleanSerialization(t *testing.T) {
 	if bytes.Compare(bson, expectedBuffer) != 0 {
 		t.Errorf("Illegal BSON returned")
 	}
+
+	// Deserialize the object
+	obj, err := Deserialize(expectedBuffer)
+	if err != nil {
+		t.Errorf("Failed to deserialize the bson array")
+	}
+
+	validateObjectSize(t, obj, 2)
+	validateBooleanField(t, obj, "o", true)
+	validateBooleanField(t, obj, "t", false)
 }
 
 func TestNilSerialization(t *testing.T) {
@@ -624,6 +691,15 @@ func TestNilSerialization(t *testing.T) {
 	if bytes.Compare(bson, expectedBuffer) != 0 {
 		t.Errorf("Illegal BSON returned")
 	}
+
+	// Deserialize the object
+	obj, err := Deserialize(expectedBuffer)
+	if err != nil {
+		t.Errorf("Failed to deserialize the bson array")
+	}
+
+	validateObjectSize(t, obj, 1)
+	validateNilField(t, obj, "o")
 }
 
 func TestRegExpSerialization(t *testing.T) {
@@ -631,7 +707,8 @@ func TestRegExpSerialization(t *testing.T) {
 
 	// Actual document
 	document := NewDocument()
-	document.Add("o", &RegExp{"[test]", "i"})
+	regexp := &RegExp{"[test]", "i"}
+	document.Add("o", regexp)
 	bson, err := Serialize(document)
 
 	t.Logf("[%v]", len(bson))
@@ -649,4 +726,13 @@ func TestRegExpSerialization(t *testing.T) {
 	if bytes.Compare(bson, expectedBuffer) != 0 {
 		t.Errorf("Illegal BSON returned")
 	}
+
+	// Deserialize the object
+	obj, err := Deserialize(expectedBuffer)
+	if err != nil {
+		t.Errorf("Failed to deserialize the bson array")
+	}
+
+	validateObjectSize(t, obj, 1)
+	validateRegExpField(t, obj, "o", regexp)
 }

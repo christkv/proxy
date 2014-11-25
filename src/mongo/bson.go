@@ -456,6 +456,17 @@ func Serialize(obj interface{}) ([]byte, error) {
 	return nil, errors.New("Unsupported Serialization Mode")
 }
 
+func readUInt64(buffer []byte, index int) uint64 {
+	return (uint64(buffer[index]) << 0) |
+		(uint64(buffer[index+1]) << 8) |
+		(uint64(buffer[index+2]) << 16) |
+		(uint64(buffer[index+3]) << 24) |
+		(uint64(buffer[index+4]) << 32) |
+		(uint64(buffer[index+5]) << 40) |
+		(uint64(buffer[index+6]) << 48) |
+		(uint64(buffer[index+7]) << 56)
+}
+
 func readUInt32(buffer []byte, index int) uint32 {
 	return (uint32(buffer[index]) << 0) |
 		(uint32(buffer[index+1]) << 8) |
@@ -511,6 +522,22 @@ func deserializeArray(bson []byte, index int) ([]interface{}, error) {
 			array = append(array, int32(readUInt32(bson, index)))
 			// Skip the int32 field
 			index = index + 4
+		case 0x09:
+			array = append(array, time.Unix(int64(readUInt64(bson, index)), 0))
+			// Skip the int64 field
+			index = index + 8
+		case 0x11:
+			array = append(array, &Timestamp{int64(readUInt64(bson, index))})
+			// Skip the int64 field
+			index = index + 8
+		case 0x12:
+			array = append(array, int64(readUInt64(bson, index)))
+			// Skip the int64 field
+			index = index + 8
+		case 0x01:
+			array = append(array, math.Float64frombits(readUInt64(bson, index)))
+			// Skip the int64 field
+			index = index + 8
 		case 0x03:
 			// Read the document size
 			docSize := int(readUInt32(bson, index))
@@ -562,6 +589,10 @@ func deserializeArray(bson []byte, index int) ([]interface{}, error) {
 			array = append(array, &ObjectId{bson[index : index+12]})
 			// Skip last null byte and size of string
 			index = index + 12
+		case 0x06:
+			array = append(array, nil)
+		case 0x0a:
+			array = append(array, nil)
 		case 0x0d:
 			// Read the string size
 			stringSize := int(readUInt32(bson, index))
@@ -658,10 +689,33 @@ func deserializeObject(bson []byte, index int) (*Document, error) {
 			break
 		case 0x10:
 			// Read the int
-			// document[fieldName] = int32(readUInt32(bson, index))
 			document.Add(fieldName, int32(readUInt32(bson, index)))
 			// Skip the int32 field
 			index = index + 4
+		case 0x09:
+			document.Add(fieldName, time.Unix(int64(readUInt64(bson, index)), 0))
+			// Skip the int64 field
+			index = index + 8
+		case 0x08:
+			if bson[index] == 0x00 {
+				document.Add(fieldName, false)
+			} else {
+				document.Add(fieldName, true)
+			}
+
+			index = index + 1
+		case 0x11:
+			document.Add(fieldName, &Timestamp{int64(readUInt64(bson, index))})
+			// Skip the int64 field
+			index = index + 8
+		case 0x12:
+			document.Add(fieldName, int64(readUInt64(bson, index)))
+			// Skip the int64 field
+			index = index + 8
+		case 0x01:
+			document.Add(fieldName, math.Float64frombits(readUInt64(bson, index)))
+			// Skip the int64 field
+			index = index + 8
 		case 0x03:
 			// Read the document size
 			stringSize := int(readUInt32(bson, index))
@@ -671,7 +725,6 @@ func deserializeObject(bson []byte, index int) (*Document, error) {
 				return nil, err
 			}
 			// Set the document
-			// document[fieldName] = obj
 			document.Add(fieldName, obj)
 			// Skip last null byte and size of string
 			index = index + stringSize
@@ -684,7 +737,6 @@ func deserializeObject(bson []byte, index int) (*Document, error) {
 				return nil, err
 			}
 			// Set the document
-			// document[fieldName] = obj
 			document.Add(fieldName, obj)
 			// Skip last null byte and size of string
 			index = index + stringSize
@@ -694,7 +746,6 @@ func deserializeObject(bson []byte, index int) (*Document, error) {
 			// Skip string size
 			index = index + 4
 			// Add the field
-			// document[fieldName] = string(bson[index : index+stringSize-1])
 			document.Add(fieldName, string(bson[index:index+stringSize-1]))
 			// Skip last null byte and size of string
 			index = index + stringSize
@@ -708,23 +759,24 @@ func deserializeObject(bson []byte, index int) (*Document, error) {
 			// Skip subtype
 			index = index + 1
 			// Add the field
-			// document[fieldName] = &Binary{subStype, bson[index : index+binarySize]}
 			document.Add(fieldName, &Binary{subStype, bson[index : index+binarySize]})
 			// Skip last null byte and size of string
 			index = index + binarySize
 		case 0x07:
 			// Add the field
-			// document[fieldName] = &ObjectId{bson[index : index+12]}
 			document.Add(fieldName, &ObjectId{bson[index : index+12]})
 			// Skip last null byte and size of string
 			index = index + 12
+		case 0x06:
+			document.Add(fieldName, nil)
+		case 0x0a:
+			document.Add(fieldName, nil)
 		case 0x0d:
 			// Read the string size
 			stringSize := int(readUInt32(bson, index))
 			// Skip string size
 			index = index + 4
 			// Add the field
-			// document[fieldName] = &Javascript{string(bson[index : index+stringSize-1])}
 			document.Add(fieldName, &Javascript{string(bson[index : index+stringSize-1])})
 			// Skip last null byte and size of string
 			index = index + stringSize
@@ -753,11 +805,38 @@ func deserializeObject(bson []byte, index int) (*Document, error) {
 			// Adjust index
 			index = index + docSize
 		case 0xff:
-			// document[fieldName] = &Min{}
 			document.Add(fieldName, &Min{})
 		case 0x7f:
-			// document[fieldName] = &Max{}
 			document.Add(fieldName, &Max{})
+		case 0x0b:
+			// Read the cstring
+			strindex := bytes.IndexByte(bson[index:], 0x00)
+
+			// No 0 byte found error out
+			if strindex == -1 {
+				return nil, errors.New("could not decode regexp pattern, possibly corrupt bson")
+			}
+
+			// Get regexp pattern
+			pattern := string(bson[index : index+strindex])
+			// Adjust index with the string length
+			index = index + strindex + 1
+
+			// Read the cstring
+			strindex = bytes.IndexByte(bson[index:], 0x00)
+
+			// No 0 byte found error out
+			if strindex == -1 {
+				return nil, errors.New("could not decode regexp options, possibly corrupt bson")
+			}
+
+			// Get regexp pattern
+			options := string(bson[index : index+strindex])
+			// Adjust index with the string length
+			index = index + strindex + 1
+
+			// Add regular expression object
+			document.Add(fieldName, &RegExp{pattern, options})
 		}
 	}
 
