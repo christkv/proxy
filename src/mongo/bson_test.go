@@ -9,7 +9,7 @@ import (
 
 func TestSimpleEmptyDocumentSerialization(t *testing.T) {
 	var expectedBuffer = []byte{5, 0, 0, 0, 0}
-	document := make(map[string]interface{})
+	document := NewDocument()
 	bson, err := Serialize(document)
 
 	t.Logf("[%v]", bson)
@@ -35,39 +35,15 @@ func TestSimpleEmptyDocumentSerialization(t *testing.T) {
 
 	t.Logf("[%v]", obj)
 
-	if len(obj) != 0 {
+	if obj.FieldCount() != 0 {
 		t.Errorf("Failed to deserialize the map")
-	}
-}
-
-func validateIntField(t *testing.T, obj map[string]interface{}, name string, value int32) {
-	switch elem := obj[name].(type) {
-	case int32:
-		if elem != value {
-			t.Fatalf("Failed int comparison [%v] != [%v]", elem, value)
-		}
-	}
-}
-
-func validateStringField(t *testing.T, obj map[string]interface{}, name string, value string) {
-	switch elem := obj[name].(type) {
-	case string:
-		if elem != value {
-			t.Fatalf("Failed int comparison [%v] != [%v]", elem, value)
-		}
-	}
-}
-
-func validateObjectSize(t *testing.T, obj map[string]interface{}, size int) {
-	if len(obj) != size {
-		t.Fatalf("Failed to deserialize the map")
 	}
 }
 
 func TestSimpleInt32Serialization(t *testing.T) {
 	var expectedBuffer = []byte{14, 0, 0, 0, 16, 105, 110, 116, 0, 10, 0, 0, 0, 0}
-	document := make(map[string]interface{})
-	document["int"] = int32(10)
+	document := NewDocument()
+	document.Add("int", int32(10))
 	bson, err := Serialize(document)
 
 	t.Logf("[%v]", bson)
@@ -97,8 +73,8 @@ func TestSimpleInt32Serialization(t *testing.T) {
 
 func TestSimpleStringSerialization(t *testing.T) {
 	var expectedBuffer = []byte{29, 0, 0, 0, 2, 115, 116, 114, 105, 110, 103, 0, 12, 0, 0, 0, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 0, 0}
-	document := make(map[string]interface{})
-	document["string"] = "hello world"
+	document := NewDocument()
+	document.Add("string", "hello world")
 	bson, err := Serialize(document)
 
 	t.Logf("[%v]", bson)
@@ -128,9 +104,9 @@ func TestSimpleStringSerialization(t *testing.T) {
 
 func TestSimpleStringAndIntSerialization(t *testing.T) {
 	var expectedBuffer = []byte{38, 0, 0, 0, 2, 115, 116, 114, 105, 110, 103, 0, 12, 0, 0, 0, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 0, 16, 105, 110, 116, 0, 10, 0, 0, 0, 0}
-	document := make(map[string]interface{})
-	document["string"] = "hello world"
-	document["int"] = int32(10)
+	document := NewDocument()
+	document.Add("string", "hello world")
+	document.Add("int", int32(10))
 	bson, err := Serialize(document)
 
 	t.Logf("[%v]", len(bson))
@@ -162,11 +138,11 @@ func TestSimpleStringAndIntSerialization(t *testing.T) {
 
 func TestSimpleNestedDocumentSerialization(t *testing.T) {
 	var expectedBuffer = []byte{48, 0, 0, 0, 2, 115, 116, 114, 105, 110, 103, 0, 12, 0, 0, 0, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 0, 3, 100, 111, 99, 0, 14, 0, 0, 0, 16, 105, 110, 116, 0, 10, 0, 0, 0, 0, 0}
-	document := make(map[string]interface{})
-	subdocument := make(map[string]interface{})
-	subdocument["int"] = int32(10)
-	document["string"] = "hello world"
-	document["doc"] = subdocument
+	document := NewDocument()
+	subdocument := NewDocument()
+	subdocument.Add("int", int32(10))
+	document.Add("string", "hello world")
+	document.Add("doc", subdocument)
 	bson, err := Serialize(document)
 
 	t.Logf("[%v]", len(bson))
@@ -184,15 +160,25 @@ func TestSimpleNestedDocumentSerialization(t *testing.T) {
 	if bytes.Compare(bson, expectedBuffer) != 0 {
 		t.Errorf("Illegal BSON returned")
 	}
+
+	// Deserialize the object
+	obj, err := Deserialize(expectedBuffer)
+	if err != nil {
+		t.Errorf("Failed to deserialize the bson array")
+	}
+
+	validateObjectSize(t, obj, 2)
+	validateStringField(t, obj, "string", "hello world")
+	validateIntField(t, subDocument(obj, "doc"), "int", 10)
 }
 
 func TestSimpleArraySerialization(t *testing.T) {
 	var expectedBuffer = []byte{35, 0, 0, 0, 4, 97, 114, 114, 97, 121, 0, 23, 0, 0, 0, 2, 48, 0, 2, 0, 0, 0, 97, 0, 2, 49, 0, 2, 0, 0, 0, 98, 0, 0, 0}
-	document := make(map[string]interface{})
+	document := NewDocument()
 	array := make([]interface{}, 0)
 	array = append(array, "a")
 	array = append(array, "b")
-	document["array"] = array
+	document.Add("array", array)
 	bson, err := Serialize(document)
 
 	t.Logf("[%v]", len(bson))
@@ -210,12 +196,24 @@ func TestSimpleArraySerialization(t *testing.T) {
 	if bytes.Compare(bson, expectedBuffer) != 0 {
 		t.Errorf("Illegal BSON returned")
 	}
+
+	// Deserialize the object
+	obj, err := Deserialize(expectedBuffer)
+	if err != nil {
+		t.Errorf("Failed to deserialize the bson array")
+	}
+
+	validateObjectSize(t, obj, 1)
+	a, _ := obj.GetArray("array")
+	validateString(t, a[0], "a")
+	validateString(t, a[1], "b")
 }
 
 func TestSimpleBinarySerialization(t *testing.T) {
 	var expectedBuffer = []byte{26, 0, 0, 0, 5, 98, 105, 110, 0, 11, 0, 0, 0, 0, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 0}
-	document := make(map[string]interface{})
-	document["bin"] = &Binary{0, []byte("hello world")}
+	document := NewDocument()
+	bin := &Binary{0, []byte("hello world")}
+	document.Add("bin", bin)
 	bson, err := Serialize(document)
 
 	t.Logf("[%v]", len(bson))
@@ -233,18 +231,27 @@ func TestSimpleBinarySerialization(t *testing.T) {
 	if bytes.Compare(bson, expectedBuffer) != 0 {
 		t.Errorf("Illegal BSON returned")
 	}
+
+	// Deserialize the object
+	obj, err := Deserialize(expectedBuffer)
+	if err != nil {
+		t.Errorf("Failed to deserialize the bson array")
+	}
+
+	validateObjectSize(t, obj, 1)
+	validateBinaryField(t, obj, "bin", bin)
 }
 
 func TestMixedDocumentSerialization(t *testing.T) {
 	var expectedBuffer = []byte{51, 0, 0, 0, 4, 97, 114, 114, 97, 121, 0, 39, 0, 0, 0, 5, 48, 0, 11, 0, 0, 0, 0, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 3, 49, 0, 12, 0, 0, 0, 16, 97, 0, 1, 0, 0, 0, 0, 0, 0}
-	subdocument := make(map[string]interface{})
-	subdocument["a"] = int32(1)
-	document := make(map[string]interface{})
+	subdocument := NewDocument()
+	subdocument.Add("a", int32(1))
+	document := NewDocument()
 	array := make([]interface{}, 0)
-	array = append(array, &Binary{0, []byte("hello world")})
+	bin := &Binary{0, []byte("hello world")}
+	array = append(array, bin)
 	array = append(array, subdocument)
-	document["array"] = array
-
+	document.Add("array", array)
 	bson, err := Serialize(document)
 
 	t.Logf("[%v]", len(bson))
@@ -262,13 +269,24 @@ func TestMixedDocumentSerialization(t *testing.T) {
 	if bytes.Compare(bson, expectedBuffer) != 0 {
 		t.Errorf("Illegal BSON returned")
 	}
+
+	// Deserialize the object
+	obj, err := Deserialize(expectedBuffer)
+	if err != nil {
+		t.Errorf("Failed to deserialize the bson array")
+	}
+
+	validateObjectSize(t, obj, 1)
+	a, _ := obj.GetArray("array")
+	validateBinary(t, a[0], bin)
+	validateIntField(t, toDocument(t, a[1]), "a", 1)
 }
 
 func TestObjectIdSerialization(t *testing.T) {
 	var expectedBuffer = []byte{21, 0, 0, 0, 7, 105, 100, 0, 49, 50, 51, 52, 53, 54, 55, 56, 49, 50, 51, 52, 0}
-	document := make(map[string]interface{})
-	document["id"] = &ObjectId{[]byte("123456781234")}
-
+	document := NewDocument()
+	objectid := &ObjectId{[]byte("123456781234")}
+	document.Add("id", objectid)
 	bson, err := Serialize(document)
 
 	t.Logf("[%v]", len(bson))
@@ -286,12 +304,22 @@ func TestObjectIdSerialization(t *testing.T) {
 	if bytes.Compare(bson, expectedBuffer) != 0 {
 		t.Errorf("Illegal BSON returned")
 	}
+
+	// Deserialize the object
+	obj, err := Deserialize(expectedBuffer)
+	if err != nil {
+		t.Errorf("Failed to deserialize the bson array")
+	}
+
+	validateObjectSize(t, obj, 1)
+	validateObjectIdField(t, obj, "id", objectid)
 }
 
 func TestJavascriptNoScopeSerialization(t *testing.T) {
 	var expectedBuffer = []byte{34, 0, 0, 0, 13, 106, 115, 0, 21, 0, 0, 0, 118, 97, 114, 32, 97, 32, 61, 32, 102, 117, 110, 99, 116, 105, 111, 110, 40, 41, 123, 125, 0, 0}
-	document := make(map[string]interface{})
-	document["js"] = &Javascript{"var a = function(){}"}
+	document := NewDocument()
+	js := &Javascript{"var a = function(){}"}
+	document.Add("js", js)
 
 	bson, err := Serialize(document)
 
@@ -310,15 +338,24 @@ func TestJavascriptNoScopeSerialization(t *testing.T) {
 	if bytes.Compare(bson, expectedBuffer) != 0 {
 		t.Errorf("Illegal BSON returned")
 	}
+
+	// Deserialize the object
+	obj, err := Deserialize(expectedBuffer)
+	if err != nil {
+		t.Errorf("Failed to deserialize the bson array")
+	}
+
+	validateObjectSize(t, obj, 1)
+	validateJavascriptField(t, obj, "js", js)
 }
 
 func TestJavascriptWithScopeSerialization(t *testing.T) {
 	var expectedBuffer = []byte{50, 0, 0, 0, 15, 106, 115, 0, 41, 0, 0, 0, 21, 0, 0, 0, 118, 97, 114, 32, 97, 32, 61, 32, 102, 117, 110, 99, 116, 105, 111, 110, 40, 41, 123, 125, 0, 12, 0, 0, 0, 16, 97, 0, 1, 0, 0, 0, 0, 0}
-
-	scope := make(map[string]interface{})
-	scope["a"] = int32(1)
-	document := make(map[string]interface{})
-	document["js"] = &JavascriptWScope{"var a = function(){}", scope}
+	scope := NewDocument()
+	scope.Add("a", int32(1))
+	document := NewDocument()
+	js := &JavascriptWScope{"var a = function(){}", scope}
+	document.Add("js", js)
 
 	bson, err := Serialize(document)
 
@@ -337,15 +374,25 @@ func TestJavascriptWithScopeSerialization(t *testing.T) {
 	if bytes.Compare(bson, expectedBuffer) != 0 {
 		t.Errorf("Illegal BSON returned")
 	}
+
+	// Deserialize the object
+	obj, err := Deserialize(expectedBuffer)
+	if err != nil {
+		t.Errorf("Failed to deserialize the bson array")
+	}
+
+	validateObjectSize(t, obj, 1)
+	j := validateJavascriptFieldWScope(t, obj, "js", js)
+	validateIntField(t, j, "a", int32(1))
 }
 
 func TestMinMaxSerialization(t *testing.T) {
-	var expectedBuffer = []byte{50, 0, 0, 0, 15, 106, 115, 0, 41, 0, 0, 0, 21, 0, 0, 0, 118, 97, 114, 32, 97, 32, 61, 32, 102, 117, 110, 99, 116, 105, 111, 110, 40, 41, 123, 125, 0, 12, 0, 0, 0, 16, 97, 0, 1, 0, 0, 0, 0, 0}
+	var expectedBuffer = []byte{15, 0, 0, 0, 255, 109, 105, 110, 0, 127, 109, 97, 120, 0, 0}
 
-	scope := make(map[string]interface{})
-	scope["a"] = int32(1)
-	document := make(map[string]interface{})
-	document["js"] = &JavascriptWScope{"var a = function(){}", scope}
+	// serializeAndPrint('min and max', {min: new MinKey(), max: new MaxKey()});
+	document := NewDocument()
+	document.Add("min", &Min{})
+	document.Add("max", &Max{})
 
 	bson, err := Serialize(document)
 
@@ -364,15 +411,25 @@ func TestMinMaxSerialization(t *testing.T) {
 	if bytes.Compare(bson, expectedBuffer) != 0 {
 		t.Errorf("Illegal BSON returned")
 	}
+
+	// Deserialize the object
+	obj, err := Deserialize(expectedBuffer)
+	if err != nil {
+		t.Errorf("Failed to deserialize the bson array")
+	}
+
+	validateObjectSize(t, obj, 2)
+	validateMaxField(t, obj, "max")
+	validateMinField(t, obj, "min")
 }
 
 func TestDateAndTimeSerialization(t *testing.T) {
 	var expectedBuffer = []byte{31, 0, 0, 0, 9, 111, 110, 101, 0, 160, 134, 1, 0, 0, 0, 0, 0, 9, 116, 119, 111, 0, 160, 134, 1, 0, 0, 0, 0, 0, 0}
 
 	// Actual document
-	document := make(map[string]interface{})
-	document["one"] = &Date{100000}
-	document["two"] = time.Unix(100000, 0)
+	document := NewDocument()
+	document.Add("one", &Date{100000})
+	document.Add("two", time.Unix(100000, 0))
 	bson, err := Serialize(document)
 
 	t.Logf("[%v]", len(bson))
@@ -396,8 +453,8 @@ func TestBufferSerialization(t *testing.T) {
 	var expectedBuffer = []byte{24, 0, 0, 0, 5, 98, 0, 11, 0, 0, 0, 0, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 0}
 
 	// Actual document
-	document := make(map[string]interface{})
-	document["b"] = []byte("hello world")
+	document := NewDocument()
+	document.Add("b", []byte("hello world"))
 	bson, err := Serialize(document)
 
 	t.Logf("[%v]", len(bson))
@@ -421,8 +478,8 @@ func TestTimestampSerialization(t *testing.T) {
 	var expectedBuffer = []byte{16, 0, 0, 0, 17, 116, 0, 160, 134, 1, 0, 0, 0, 0, 0, 0}
 
 	// Actual document
-	document := make(map[string]interface{})
-	document["t"] = &Timestamp{100000}
+	document := NewDocument()
+	document.Add("t", &Timestamp{100000})
 	bson, err := Serialize(document)
 
 	t.Logf("[%v]", len(bson))
@@ -446,9 +503,9 @@ func TestInt64AndUInt64Serialization(t *testing.T) {
 	var expectedBuffer = []byte{27, 0, 0, 0, 18, 111, 0, 255, 255, 255, 255, 255, 255, 255, 255, 18, 116, 0, 160, 134, 1, 0, 0, 0, 0, 0, 0}
 
 	// Actual document
-	document := make(map[string]interface{})
-	document["o"] = int64(-1)
-	document["t"] = uint64(100000)
+	document := NewDocument()
+	document.Add("o", int64(-1))
+	document.Add("t", uint64(100000))
 	bson, err := Serialize(document)
 
 	t.Logf("[%v]", len(bson))
@@ -472,8 +529,8 @@ func TestFloat64Serialization(t *testing.T) {
 	var expectedBuffer = []byte{16, 0, 0, 0, 1, 111, 0, 31, 133, 235, 81, 184, 30, 9, 64, 0}
 
 	// Actual document
-	document := make(map[string]interface{})
-	document["o"] = float64(3.14)
+	document := NewDocument()
+	document.Add("o", float64(3.14))
 	bson, err := Serialize(document)
 
 	t.Logf("[%v]", len(bson))
@@ -497,8 +554,8 @@ func TestFloat32Serialization(t *testing.T) {
 	var expectedBuffer = []byte{16, 0, 0, 0, 1, 111, 0, 102, 102, 102, 102, 102, 102, 246, 191, 0}
 
 	// Actual document
-	document := make(map[string]interface{})
-	document["o"] = float32(-1.4)
+	document := NewDocument()
+	document.Add("o", float32(-1.4))
 	bson, err := Serialize(document)
 
 	t.Logf("[%v]", len(bson))
@@ -522,9 +579,9 @@ func TestBooleanSerialization(t *testing.T) {
 	var expectedBuffer = []byte{13, 0, 0, 0, 8, 111, 0, 1, 8, 116, 0, 0, 0}
 
 	// Actual document
-	document := make(map[string]interface{})
-	document["o"] = true
-	document["t"] = false
+	document := NewDocument()
+	document.Add("o", true)
+	document.Add("t", false)
 	bson, err := Serialize(document)
 
 	t.Logf("[%v]", len(bson))
@@ -548,8 +605,8 @@ func TestNilSerialization(t *testing.T) {
 	var expectedBuffer = []byte{8, 0, 0, 0, 10, 111, 0, 0}
 
 	// Actual document
-	document := make(map[string]interface{})
-	document["o"] = nil
+	document := NewDocument()
+	document.Add("o", nil)
 	bson, err := Serialize(document)
 
 	t.Logf("[%v]", len(bson))
@@ -573,8 +630,8 @@ func TestRegExpSerialization(t *testing.T) {
 	var expectedBuffer = []byte{17, 0, 0, 0, 11, 111, 0, 91, 116, 101, 115, 116, 93, 0, 105, 0, 0}
 
 	// Actual document
-	document := make(map[string]interface{})
-	document["o"] = &RegExp{"[test]", "i"}
+	document := NewDocument()
+	document.Add("o", &RegExp{"[test]", "i"})
 	bson, err := Serialize(document)
 
 	t.Logf("[%v]", len(bson))
