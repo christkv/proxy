@@ -83,10 +83,12 @@ func calculateElementSize(elem interface{}) (int, error) {
 		return size, errors.New(fmt.Sprintf("unsupported type %T", element))
 	case reflect.Value:
 		switch element.Kind() {
-		case reflect.Int32:
+		case reflect.Int32, reflect.Uint32:
 			size = size + 4
 		case reflect.String:
-			size = +4 + len(element.String()) + 1
+			size = 4 + len(element.String()) + 1
+		case reflect.Int64, reflect.Uint64, reflect.Float32, reflect.Float64:
+			size = size + 8
 		}
 	case []interface{}:
 		elementSize, err := calculateArraySize(element)
@@ -104,17 +106,9 @@ func calculateElementSize(elem interface{}) (int, error) {
 		size = size + elementSize
 	case string:
 		size = size + 4 + len(element) + 1
-	case int32:
+	case int32, uint32:
 		size = size + 4
-	case uint32:
-		size = size + 4
-	case uint64:
-		size = size + 8
-	case int64:
-		size = size + 8
-	case float32:
-		size = size + 8
-	case float64:
+	case int64, uint64, float32, float64, *Date, *Timestamp, time.Time, *time.Time:
 		size = size + 8
 	case nil:
 		size = size
@@ -128,12 +122,6 @@ func calculateElementSize(elem interface{}) (int, error) {
 		size = size + 12
 	case *RegExp:
 		size = size + len(element.Pattern) + 1 + len(element.Options) + 1
-	case *Date:
-		size = size + 8
-	case *Timestamp:
-		size = size + 8
-	case time.Time, *time.Time:
-		size = size + 8
 	case *Javascript:
 		size = size + len(element.Code) + 4 + 1
 	case *JavascriptWScope:
@@ -143,9 +131,7 @@ func calculateElementSize(elem interface{}) (int, error) {
 		}
 
 		size = size + len(element.Code) + elementSize + 4 + 1 + 4
-	case Min, *Min:
-		size = size
-	case Max, *Max:
+	case Min, *Min, Max, *Max:
 		size = size
 	}
 
