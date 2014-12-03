@@ -8,6 +8,7 @@ import (
 	"math"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -73,13 +74,20 @@ func writeU64(buffer []byte, index int, value uint64) {
 	buffer[index] = byte(value & 0xff)
 }
 
-func calculateElementSize(element interface{}) (int, error) {
+func calculateElementSize(elem interface{}) (int, error) {
 	size := 0
 
 	// Serialize the document
-	switch element := element.(type) {
+	switch element := elem.(type) {
 	default:
 		return size, errors.New(fmt.Sprintf("unsupported type %T", element))
+	case reflect.Value:
+		switch element.Kind() {
+		case reflect.Int32:
+			size = size + 4
+		case reflect.String:
+			size = +4 + len(element.String()) + 1
+		}
 	case []interface{}:
 		elementSize, err := calculateArraySize(element)
 		if err != nil {
@@ -165,6 +173,21 @@ func calculateArraySize(array []interface{}) (int, error) {
 	return size, nil
 }
 
+func packString(buffer []byte, originalIndex int, index int, value string) int {
+	buffer[originalIndex] = 0x02
+	stringBytes := []byte(value)
+	writeU32(buffer, index+1, uint32(len(stringBytes)+1))
+	copy(buffer[index+5:], stringBytes[:])
+	buffer[index+5+len(stringBytes)] = 0x00
+	return index + 4 + len(stringBytes) + 1 + 1
+}
+
+func packInt32(buffer []byte, originalIndex int, index int, value uint32) int {
+	buffer[originalIndex] = 0x10
+	writeU32(buffer, index+1, value)
+	return index + 5
+}
+
 func packElement(key string, value interface{}, buffer []byte, index int) (int, error) {
 	strbytes := []byte(key)
 	// Save a pointer to the first byte index
@@ -179,10 +202,21 @@ func packElement(key string, value interface{}, buffer []byte, index int) (int, 
 	// Update the index with the field length
 	index = index + len(strbytes)
 
+	log.Printf("############################### PACK")
 	// Determine the type
 	switch element := value.(type) {
 	default:
 		return index, errors.New(fmt.Sprintf("unsupported type %T", element))
+	case reflect.Value:
+		log.Printf("REFLECTED VALUE")
+		switch element.Kind() {
+		case reflect.Int32:
+			log.Printf("reflected int32 serialize %v", uint32(element.Int()))
+			index = packInt32(buffer, originalIndex, index, uint32(element.Int()))
+		case reflect.String:
+			log.Printf("reflected string serialize %v", element.String())
+			index = packString(buffer, originalIndex, index, element.String())
+		}
 	case int32:
 		log.Printf("int32 serialize")
 		buffer[originalIndex] = 0x10
@@ -264,12 +298,7 @@ func packElement(key string, value interface{}, buffer []byte, index int) (int, 
 		index = index + 1
 	case string:
 		log.Printf("string serialize")
-		buffer[originalIndex] = 0x02
-		stringBytes := []byte(element)
-		writeU32(buffer, index+1, uint32(len(stringBytes)+1))
-		copy(buffer[index+5:], stringBytes[:])
-		buffer[index+5+len(stringBytes)] = 0x00
-		index = index + 4 + len(stringBytes) + 1 + 1
+		index = packString(buffer, originalIndex, index, element)
 	case []interface{}:
 		log.Printf("array serialize %v", index)
 		// Set the type of be document
@@ -362,17 +391,54 @@ func packElement(key string, value interface{}, buffer []byte, index int) (int, 
 	return index, nil
 }
 
-func serializeObject(buffer []byte, index int, document *Document) (int, error) {
+func serializeObject(buffer []byte, index int, object interface{}) (int, error) {
 	i := index + 4
 
-	// Iterate over all the key values
-	for _, key := range document.fields {
-		value := document.document[key]
-		in, err := packElement(key, value, buffer, i)
-		if err != nil {
-			return i, err
+	switch document := object.(type) {
+	default:
+		return 0, errors.New("Unsupported Serialization Mode")
+	case *Document:
+		// Iterate over all the key values
+		for _, key := range document.fields {
+			value := document.document[key]
+			in, err := packElement(key, value, buffer, i)
+			if err != nil {
+				return i, err
+			}
+			i = in
 		}
-		i = in
+	case reflect.Value:
+		numberOfField := document.NumField()
+
+		log.Printf("number of fields off struct %v", numberOfField)
+
+		// Let's iterate over all the fields
+		for j := 0; j < numberOfField; j++ {
+			// Get the field value
+			fieldValue := document.Field(j)
+			fieldType := document.Type().Field(j)
+			// Get the field name
+			key := fieldType.Name
+			// Get the tag
+			tag := fieldType.Tag.Get("bson")
+			// Split the tag into parts
+			parts := strings.Split(tag, ",")
+
+			// Override the key if the metadata has one
+			if len(parts) > 0 && parts[0] != "" {
+				key = parts[0]
+			}
+
+			log.Printf("serialize field %v of type %v with tag %v at index %v", key, fieldValue, tag, index)
+
+			// Add the size of the actual element
+			in, err := packElement(key, fieldValue, buffer, i)
+			if err != nil {
+				return i, err
+			}
+
+			i = in
+		}
 	}
 
 	// Final object size
@@ -406,51 +472,144 @@ func serializeArray(buffer []byte, index int, array []interface{}) (int, error) 
 	return i, nil
 }
 
-func CalculateObjectSize(document *Document) (int, error) {
+func CalculateObjectSize(value interface{}) (int, error) {
 	size := 5
 
-	// Iterate over all the key values
-	// for key, value := range document {
-	for _, key := range document.fields {
-		// Get the value
-		value := document.document[key]
-		// Add the key size
-		size = size + len(key) + 1 + 1
-		// Add the size of the actual element
-		elementSize, err := calculateElementSize(value)
+	switch document := value.(type) {
+	case *Document:
+		// Iterate over all the key values
+		// for key, value := range document {
+		for _, key := range document.fields {
+			// Get the value
+			value := document.document[key]
+			// Add the key size
+			size = size + len(key) + 1 + 1
+			// Add the size of the actual element
+			elementSize, err := calculateElementSize(value)
 
-		if err != nil {
-			return size, err
+			if err != nil {
+				return size, err
+			}
+
+			size = size + elementSize
+		}
+	default:
+		// Get type of
+		typeof := reflect.ValueOf(value)
+		// If we have a pointer get actual element
+		if typeof.Kind() == reflect.Ptr {
+			typeof = typeof.Elem()
 		}
 
-		size = size + elementSize
+		// Check if we have a struct
+		switch typeof.Kind() {
+		case reflect.Struct:
+			numberOfField := typeof.NumField()
+
+			log.Printf("number of fields off struct %v", numberOfField)
+
+			// Let's iterate over all the fields
+			for i := 0; i < numberOfField; i++ {
+				// Get the field value
+				fieldValue := typeof.Field(i)
+				fieldType := typeof.Type().Field(i)
+				// Get the field name
+				key := fieldType.Name
+				// Get the tag
+				tag := fieldType.Tag.Get("bson")
+				// Split the tag into parts
+				parts := strings.Split(tag, ",")
+
+				// Override the key if the metadata has one
+				if len(parts) > 0 && parts[0] != "" {
+					key = parts[0]
+				}
+
+				log.Printf("calculate size for field %v of type %v with tag %v", key, fieldValue, tag)
+
+				// Add the length of the name of the field
+				size = size + len(key) + 1 + 1
+
+				// Add the size of the actual element
+				elementSize, err := calculateElementSize(fieldValue)
+
+				if err != nil {
+					return size, err
+				}
+
+				size = size + elementSize
+			}
+
+			return size, nil
+		}
+
+		return size, errors.New("Unsupported Serialization Mode")
 	}
 
 	return size, nil
 }
 
-func Serialize(obj interface{}) ([]byte, error) {
+func Serialize(obj interface{}, bson []byte, offset int) ([]byte, error) {
 	switch document := obj.(type) {
 	case *Document:
-		// Calculate the size of the document
-		size, err := CalculateObjectSize(document)
-		if err != nil {
-			return nil, err
+		// We are not using our own buffer to serialize into
+		if bson == nil {
+			// Calculate the size of the document
+			size, err := CalculateObjectSize(document)
+			if err != nil {
+				return nil, err
+			}
+
+			log.Printf("size of bson element %v", size)
+
+			// Allocate space
+			bson = make([]byte, size)
 		}
 
-		log.Printf("size of bson element %v", size)
-
-		// Allocate space
-		bson := make([]byte, size)
-
 		// Serialize the object
-		_, err = serializeObject(bson, 0, document)
+		_, err := serializeObject(bson[offset:], 0, document)
 		if err != nil {
 			return nil, err
 		}
 
 		// Return the bson
 		return bson, nil
+	default:
+		// Get type of
+		typeof := reflect.ValueOf(obj)
+		// If we have a pointer get actual element
+		if typeof.Kind() == reflect.Ptr {
+			typeof = typeof.Elem()
+		}
+
+		// Check if we have a struct
+		switch typeof.Kind() {
+		case reflect.Struct:
+			// We are not using our own buffer to serialize into
+			if bson == nil {
+				log.Printf("##########################################################")
+				// Calculate the size of the document
+				size, err := CalculateObjectSize(document)
+				if err != nil {
+					log.Printf("%v", err)
+					return nil, err
+				}
+
+				log.Printf("size of bson element %v", size)
+
+				// Allocate space
+				bson = make([]byte, size)
+			}
+
+			// Serialize the object
+			_, err := serializeObject(bson[offset:], 0, typeof)
+			if err != nil {
+				return nil, err
+			}
+
+			// Return the bson
+			return bson, nil
+		}
 	}
 
 	return nil, errors.New("Unsupported Serialization Mode")
