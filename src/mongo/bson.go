@@ -74,68 +74,131 @@ func writeU64(buffer []byte, index int, value uint64) {
 	buffer[index] = byte(value & 0xff)
 }
 
-func calculateElementSize(elem interface{}) (int, error) {
+func calculateElementSize(value reflect.Value) (int, error) {
 	size := 0
+	log.Printf("=========== calculateElementSize :: %s", value.Kind())
 
-	// Serialize the document
-	switch element := elem.(type) {
-	default:
-		return size, errors.New(fmt.Sprintf("unsupported type %T", element))
-	case reflect.Value:
-		switch element.Kind() {
-		case reflect.Int32, reflect.Uint32:
-			size = size + 4
-		case reflect.String:
-			size = 4 + len(element.String()) + 1
-		case reflect.Int64, reflect.Uint64, reflect.Float32, reflect.Float64:
-			size = size + 8
-		}
-	case []interface{}:
-		elementSize, err := calculateArraySize(element)
-		if err != nil {
-			return size, err
-		}
-
-		size = size + elementSize
-	case *Document:
-		elementSize, err := CalculateObjectSize(element)
-		if err != nil {
-			return size, err
-		}
-
-		size = size + elementSize
-	case string:
-		size = size + 4 + len(element) + 1
-	case int32, uint32:
+	// value := reflect.ValueOf(elem)
+	// Switch on the value
+	switch value.Kind() {
+	case reflect.Int32, reflect.Uint32:
+		log.Printf("got Int32")
 		size = size + 4
-	case int64, uint64, float32, float64, *Date, *Timestamp, time.Time, *time.Time:
+	case reflect.Int64, reflect.Uint64, reflect.Float32, reflect.Float64:
+		log.Printf("got Int64")
 		size = size + 8
-	case nil:
-		size = size
-	case *Binary:
-		size = size + 4 + 1 + len(element.Data)
-	case bool:
-		size = size + 1
-	case []byte:
-		size = size + 4 + 1 + len(element)
-	case *ObjectId:
-		size = size + 12
-	case *RegExp:
-		size = size + len(element.Pattern) + 1 + len(element.Options) + 1
-	case *Javascript:
-		size = size + len(element.Code) + 4 + 1
-	case *JavascriptWScope:
-		elementSize, err := CalculateObjectSize(element.Scope)
-		if err != nil {
-			return size, err
+	case reflect.String:
+		log.Printf("got String")
+		size = 4 + len(value.String()) + 1
+	case reflect.Struct:
+		log.Printf("got Struct")
+		log.Printf("############################# STRUCT HUH")
+		// Switch on the type
+		switch structType := value.Interface().(type) {
+		case ObjectId:
+			size = size + 12
+		default:
+			return 0, errors.New(fmt.Sprintf("BSON struct type %T not supported for serialization", structType))
 		}
-
-		size = size + len(element.Code) + elementSize + 4 + 1 + 4
-	case Min, *Min, Max, *Max:
-		size = size
+	default:
+		return 0, errors.New(fmt.Sprintf("BSON struct type %T not supported for serialization", value))
 	}
 
 	return size, nil
+
+	// // Serialize the document
+	// switch element := elem.(type) {
+	// default:
+	// 	return size, errors.New(fmt.Sprintf("unsupported type %T", element))
+	// case reflect.Value:
+	// 	// // Get type of
+	// 	// typeof := reflect.ValueOf(elem)
+	// 	// // If we have a pointer get actual element
+	// 	// if elem.Kind() == reflect.Ptr {
+	// 	// 	typeof = typeof.Elem()
+	// 	// }
+
+	// 	switch element.Kind() {
+	// 	case reflect.Int32, reflect.Uint32:
+	// 		size = size + 4
+	// 	case reflect.String:
+	// 		size = 4 + len(element.String()) + 1
+	// 	case reflect.Int64, reflect.Uint64, reflect.Float32, reflect.Float64:
+	// 		size = size + 8
+	// 	case reflect.Struct:
+	// 		elementSize, err := CalculateObjectSize(element)
+	// 		if err != nil {
+	// 			return size, err
+	// 		}
+
+	// 		size = size + elementSize
+	// 	default:
+	// 		// switch reflect.ValueOf(elem).Type().Kind() {
+	// 		// case reflect.Struct:
+	// 		// 	log.Printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^ STRUCT")
+	// 		// 	elementSize, err := CalculateObjectSize(reflect.ValueOf(elem))
+	// 		// 	if err != nil {
+	// 		// 		return size, err
+	// 		// 	}
+
+	// 		// 	size = size + elementSize
+	// 		// 	return size, nil
+	// 		// }
+
+	// 		// typeof := reflect.ValueOf(elem).Type()
+	// 		// // if typeof.Kind() == reflect.Ptr {
+	// 		// log.Printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^ POINTER %v", typeof)
+	// 		// 	// 	typeof = typeof.Elem()
+	// 		// }
+
+	// 		return size, errors.New(fmt.Sprintf("unsupported type %T", elem))
+	// 	}
+	// case []interface{}:
+	// 	elementSize, err := calculateArraySize(element)
+	// 	if err != nil {
+	// 		return size, err
+	// 	}
+
+	// 	size = size + elementSize
+	// case *Document:
+	// 	elementSize, err := CalculateObjectSize(element)
+	// 	if err != nil {
+	// 		return size, err
+	// 	}
+
+	// 	size = size + elementSize
+	// case string:
+	// 	size = size + 4 + len(element) + 1
+	// case int32, uint32:
+	// 	size = size + 4
+	// case int64, uint64, float32, float64, *Date, *Timestamp, time.Time, *time.Time:
+	// 	size = size + 8
+	// case nil:
+	// 	size = size
+	// case *Binary:
+	// 	size = size + 4 + 1 + len(element.Data)
+	// case bool:
+	// 	size = size + 1
+	// case []byte:
+	// 	size = size + 4 + 1 + len(element)
+	// case *ObjectId:
+	// 	size = size + 12
+	// case *RegExp:
+	// 	size = size + len(element.Pattern) + 1 + len(element.Options) + 1
+	// case *Javascript:
+	// 	size = size + len(element.Code) + 4 + 1
+	// case *JavascriptWScope:
+	// 	elementSize, err := CalculateObjectSize(element.Scope)
+	// 	if err != nil {
+	// 		return size, err
+	// 	}
+
+	// 	size = size + len(element.Code) + elementSize + 4 + 1 + 4
+	// case Min, *Min, Max, *Max:
+	// 	size = size
+	// }
+
+	// return size, nil
 }
 
 func calculateArraySize(array []interface{}) (int, error) {
@@ -147,7 +210,7 @@ func calculateArraySize(array []interface{}) (int, error) {
 		// Add the key size
 		size = size + len(indexStr) + 1 + 1
 		// Add the size of the actual element
-		elementSize, err := calculateElementSize(value)
+		elementSize, err := calculateElementSize(reflect.ValueOf(value))
 
 		if err != nil {
 			return size, err
@@ -458,20 +521,21 @@ func serializeArray(buffer []byte, index int, array []interface{}) (int, error) 
 	return i, nil
 }
 
-func CalculateObjectSize(value interface{}) (int, error) {
+func CalculateObjectSize(obj interface{}) (int, error) {
+	// Minimum object size
 	size := 5
 
-	switch document := value.(type) {
+	// Switch on the type of the value passed in
+	switch doc := obj.(type) {
 	case *Document:
 		// Iterate over all the key values
-		// for key, value := range document {
-		for _, key := range document.fields {
+		for _, key := range doc.fields {
 			// Get the value
-			value := document.document[key]
+			value := doc.document[key]
 			// Add the key size
 			size = size + len(key) + 1 + 1
 			// Add the size of the actual element
-			elementSize, err := calculateElementSize(value)
+			elementSize, err := calculateElementSize(reflect.ValueOf(value))
 
 			if err != nil {
 				return size, err
@@ -480,25 +544,27 @@ func CalculateObjectSize(value interface{}) (int, error) {
 			size = size + elementSize
 		}
 	default:
-		// Get type of
-		typeof := reflect.ValueOf(value)
-		// If we have a pointer get actual element
-		if typeof.Kind() == reflect.Ptr {
-			typeof = typeof.Elem()
+		log.Printf("type of %v %v", doc, reflect.ValueOf(obj).Kind())
+
+		// Get the value of the object
+		value := reflect.ValueOf(obj)
+		// Retrieve the Kind
+		kind := value.Kind()
+		// If it's a pointer we need to get the actual element pointed to
+		if kind == reflect.Ptr {
+			value = value.Elem()
 		}
 
-		// Check if we have a struct
-		switch typeof.Kind() {
+		// Switch on the type
+		switch value.Kind() {
 		case reflect.Struct:
-			numberOfField := typeof.NumField()
-
-			log.Printf("number of fields off struct %v", numberOfField)
+			numberOfField := value.NumField()
 
 			// Let's iterate over all the fields
 			for i := 0; i < numberOfField; i++ {
 				// Get the field value
-				fieldValue := typeof.Field(i)
-				fieldType := typeof.Type().Field(i)
+				fieldValue := value.Field(i)
+				fieldType := value.Type().Field(i)
 				// Get the field name
 				key := fieldType.Name
 				// Get the tag
@@ -510,8 +576,6 @@ func CalculateObjectSize(value interface{}) (int, error) {
 				if len(parts) > 0 && parts[0] != "" {
 					key = parts[0]
 				}
-
-				log.Printf("calculate size for field %v of type %v with tag %v", key, fieldValue, tag)
 
 				// Add the length of the name of the field
 				size = size + len(key) + 1 + 1
@@ -525,11 +589,7 @@ func CalculateObjectSize(value interface{}) (int, error) {
 
 				size = size + elementSize
 			}
-
-			return size, nil
 		}
-
-		return size, errors.New("Unsupported Serialization Mode")
 	}
 
 	return size, nil

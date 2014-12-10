@@ -7,7 +7,7 @@ import (
 )
 
 func validateIntField(t *testing.T, obj *Document, name string, expected int32) {
-	value, err := obj.FieldAsInt32(name)
+	value, err := obj.Int32(name)
 	if err != nil {
 		t.Fatalf("Failed to retrieve value [%v] as int32", name)
 		return
@@ -19,7 +19,7 @@ func validateIntField(t *testing.T, obj *Document, name string, expected int32) 
 }
 
 func validateTimeField(t *testing.T, obj *Document, name string, expected time.Time) {
-	value, err := obj.FieldAsTime(name)
+	value, err := obj.Time(name)
 	if err != nil {
 		t.Fatalf("Failed to retrieve value [%v] as time", name)
 		return
@@ -31,7 +31,7 @@ func validateTimeField(t *testing.T, obj *Document, name string, expected time.T
 }
 
 func validateStringField(t *testing.T, obj *Document, name string, expected string) {
-	value, err := obj.FieldAsString(name)
+	value, err := obj.String(name)
 	if err != nil {
 		t.Fatalf("Failed to retrieve value [%v] as string", name)
 		return
@@ -43,7 +43,7 @@ func validateStringField(t *testing.T, obj *Document, name string, expected stri
 }
 
 func validateBinaryField(t *testing.T, obj *Document, name string, expected *Binary) {
-	value, err := obj.FieldAsBinary(name)
+	value, err := obj.Binary(name)
 	if err != nil {
 		t.Fatalf("Failed to retrieve value [%v] as binary", name)
 		return
@@ -55,7 +55,7 @@ func validateBinaryField(t *testing.T, obj *Document, name string, expected *Bin
 }
 
 func validateBufferField(t *testing.T, obj *Document, name string, expected []byte) {
-	value, err := obj.FieldAsBinary(name)
+	value, err := obj.Binary(name)
 	if err != nil {
 		t.Fatalf("Failed to retrieve value [%v] as binary", name)
 		return
@@ -67,7 +67,7 @@ func validateBufferField(t *testing.T, obj *Document, name string, expected []by
 }
 
 func validateTimestampField(t *testing.T, obj *Document, name string, expected *Timestamp) {
-	value, err := obj.FieldAsTimestamp(name)
+	value, err := obj.Timestamp(name)
 	if err != nil {
 		t.Fatalf("Failed to retrieve value [%v] as timestamp", name)
 		return
@@ -79,7 +79,7 @@ func validateTimestampField(t *testing.T, obj *Document, name string, expected *
 }
 
 func validateObjectIdField(t *testing.T, obj *Document, name string, expected *ObjectId) {
-	value, err := obj.FieldAsObjectId(name)
+	value, err := obj.ObjectId(name)
 	if err != nil {
 		t.Fatalf("Failed to retrieve value [%v] as objectid", name)
 		return
@@ -91,7 +91,7 @@ func validateObjectIdField(t *testing.T, obj *Document, name string, expected *O
 }
 
 func validateInt64Field(t *testing.T, obj *Document, name string, expected int64) {
-	value, err := obj.FieldAsInt64(name)
+	value, err := obj.Int64(name)
 	if err != nil {
 		t.Fatalf("Failed to retrieve value [%v] as int64", name)
 		return
@@ -103,7 +103,7 @@ func validateInt64Field(t *testing.T, obj *Document, name string, expected int64
 }
 
 func validateUInt64Field(t *testing.T, obj *Document, name string, expected uint64) {
-	value, err := obj.FieldAsUInt64(name)
+	value, err := obj.UInt64(name)
 	if err != nil {
 		t.Fatalf("Failed to retrieve value [%v] as uint64", name)
 		return
@@ -115,7 +115,7 @@ func validateUInt64Field(t *testing.T, obj *Document, name string, expected uint
 }
 
 func validateFloat64Field(t *testing.T, obj *Document, name string, expected float64) {
-	value, err := obj.FieldAsFloat64(name)
+	value, err := obj.Float64(name)
 	if err != nil {
 		t.Fatalf("Failed to retrieve value [%v] as float64", name)
 		return
@@ -127,7 +127,7 @@ func validateFloat64Field(t *testing.T, obj *Document, name string, expected flo
 }
 
 func validateFloat32Field(t *testing.T, obj *Document, name string, expected float32) {
-	value, err := obj.FieldAsFloat32(name)
+	value, err := obj.Float32(name)
 	if err != nil {
 		t.Fatalf("Failed to retrieve value [%v] as float32", name)
 		return
@@ -139,7 +139,7 @@ func validateFloat32Field(t *testing.T, obj *Document, name string, expected flo
 }
 
 func validateBooleanField(t *testing.T, obj *Document, name string, expected bool) {
-	value, err := obj.FieldAsBool(name)
+	value, err := obj.Bool(name)
 	if err != nil {
 		t.Fatalf("Failed to retrieve value [%v] as bool", name)
 		return
@@ -151,7 +151,7 @@ func validateBooleanField(t *testing.T, obj *Document, name string, expected boo
 }
 
 func validateNilField(t *testing.T, obj *Document, name string) {
-	value, err := obj.FieldAsNil(name)
+	value, err := obj.Nil(name)
 	if err != nil {
 		t.Fatalf("Failed to retrieve value [%v] as bool", name)
 		return
@@ -163,7 +163,7 @@ func validateNilField(t *testing.T, obj *Document, name string) {
 }
 
 func validateRegExpField(t *testing.T, obj *Document, name string, expected *RegExp) {
-	value, err := obj.FieldAsRegExp(name)
+	value, err := obj.RegExp(name)
 	if err != nil {
 		t.Fatalf("Failed to retrieve value [%v] as RegExp", name)
 		return
@@ -175,7 +175,7 @@ func validateRegExpField(t *testing.T, obj *Document, name string, expected *Reg
 }
 
 func validateJavascriptField(t *testing.T, obj *Document, name string, expected *Javascript) {
-	value, err := obj.FieldAsJavascript(name)
+	value, err := obj.Javascript(name)
 	if err != nil {
 		t.Fatalf("Failed to retrieve value [%v] as JavascriptField", name)
 		return
@@ -187,7 +187,7 @@ func validateJavascriptField(t *testing.T, obj *Document, name string, expected 
 }
 
 func validateJavascriptFieldWScope(t *testing.T, obj *Document, name string, expected *JavascriptWScope) *Document {
-	value, err := obj.FieldAsJavascriptWScope(name)
+	value, err := obj.JavascriptWScope(name)
 	if err != nil {
 		t.Fatalf("Failed to retrieve value [%v] as JavascriptField", name)
 		return nil
@@ -201,7 +201,7 @@ func validateJavascriptFieldWScope(t *testing.T, obj *Document, name string, exp
 }
 
 func validateMaxField(t *testing.T, obj *Document, name string) {
-	_, err := obj.FieldAsMax(name)
+	_, err := obj.Max(name)
 	if err != nil {
 		t.Fatalf("Failed to retrieve value [%v] as Max", name)
 		return
@@ -209,7 +209,7 @@ func validateMaxField(t *testing.T, obj *Document, name string) {
 }
 
 func validateMinField(t *testing.T, obj *Document, name string) {
-	_, err := obj.FieldAsMin(name)
+	_, err := obj.Min(name)
 	if err != nil {
 		t.Fatalf("Failed to retrieve value [%v] as Max", name)
 		return
@@ -223,7 +223,7 @@ func validateObjectSize(t *testing.T, obj *Document, size int) {
 }
 
 func subDocument(obj *Document, name string) *Document {
-	value, err := obj.FieldAsDocument(name)
+	value, err := obj.Document(name)
 	if err != nil {
 		return nil
 	}

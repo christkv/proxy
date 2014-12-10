@@ -30,7 +30,7 @@ func (p *Document) Add(name string, value interface{}) {
 	p.document[name] = value
 }
 
-func (p *Document) FieldAsFloat64(name string) (float64, error) {
+func (p *Document) Float64(name string) (float64, error) {
 	switch elem := p.document[name].(type) {
 	default:
 		return 0, errors.New(fmt.Sprintf("field %v is not a float64", name))
@@ -39,7 +39,7 @@ func (p *Document) FieldAsFloat64(name string) (float64, error) {
 	}
 }
 
-func (p *Document) FieldAsFloat32(name string) (float32, error) {
+func (p *Document) Float32(name string) (float32, error) {
 	switch elem := p.document[name].(type) {
 	default:
 		return 0, errors.New(fmt.Sprintf("field %v is not a float32", name))
@@ -48,7 +48,7 @@ func (p *Document) FieldAsFloat32(name string) (float32, error) {
 	}
 }
 
-func (p *Document) FieldAsRegExp(name string) (*RegExp, error) {
+func (p *Document) RegExp(name string) (*RegExp, error) {
 	switch elem := p.document[name].(type) {
 	default:
 		return nil, errors.New(fmt.Sprintf("field %v is not a regexp", name))
@@ -57,7 +57,7 @@ func (p *Document) FieldAsRegExp(name string) (*RegExp, error) {
 	}
 }
 
-func (p *Document) FieldAsBool(name string) (bool, error) {
+func (p *Document) Bool(name string) (bool, error) {
 	switch elem := p.document[name].(type) {
 	default:
 		return false, errors.New(fmt.Sprintf("field %v is not a bool", name))
@@ -66,7 +66,7 @@ func (p *Document) FieldAsBool(name string) (bool, error) {
 	}
 }
 
-func (p *Document) FieldAsNil(name string) (interface{}, error) {
+func (p *Document) Nil(name string) (interface{}, error) {
 	switch elem := p.document[name].(type) {
 	default:
 		return false, errors.New(fmt.Sprintf("field %v is not nil", name))
@@ -75,7 +75,7 @@ func (p *Document) FieldAsNil(name string) (interface{}, error) {
 	}
 }
 
-func (p *Document) FieldAsString(name string) (string, error) {
+func (p *Document) String(name string) (string, error) {
 	switch elem := p.document[name].(type) {
 	default:
 		return "", errors.New(fmt.Sprintf("field %v is not a string", name))
@@ -84,7 +84,7 @@ func (p *Document) FieldAsString(name string) (string, error) {
 	}
 }
 
-func (p *Document) FieldAsInt32(name string) (int32, error) {
+func (p *Document) Int32(name string) (int32, error) {
 	switch elem := p.document[name].(type) {
 	default:
 		return 0, errors.New(fmt.Sprintf("field %v is not an int32", name))
@@ -93,7 +93,7 @@ func (p *Document) FieldAsInt32(name string) (int32, error) {
 	}
 }
 
-func (p *Document) FieldAsDocument(name string) (*Document, error) {
+func (p *Document) Document(name string) (*Document, error) {
 	switch elem := p.document[name].(type) {
 	default:
 		return nil, errors.New(fmt.Sprintf("field %v is not a document", name))
@@ -102,7 +102,7 @@ func (p *Document) FieldAsDocument(name string) (*Document, error) {
 	}
 }
 
-func (p *Document) FieldAsBinary(name string) (*Binary, error) {
+func (p *Document) Binary(name string) (*Binary, error) {
 	switch elem := p.document[name].(type) {
 	default:
 		return nil, errors.New(fmt.Sprintf("field %v is not a binary object", name))
@@ -111,7 +111,7 @@ func (p *Document) FieldAsBinary(name string) (*Binary, error) {
 	}
 }
 
-func (p *Document) FieldAsObjectId(name string) (*ObjectId, error) {
+func (p *Document) ObjectId(name string) (*ObjectId, error) {
 	switch elem := p.document[name].(type) {
 	default:
 		return nil, errors.New(fmt.Sprintf("field %v is not a binary object", name))
@@ -120,7 +120,7 @@ func (p *Document) FieldAsObjectId(name string) (*ObjectId, error) {
 	}
 }
 
-func (p *Document) FieldAsJavascript(name string) (*Javascript, error) {
+func (p *Document) Javascript(name string) (*Javascript, error) {
 	switch elem := p.document[name].(type) {
 	default:
 		return nil, errors.New(fmt.Sprintf("field %v is not a javascript object", name))
@@ -129,7 +129,7 @@ func (p *Document) FieldAsJavascript(name string) (*Javascript, error) {
 	}
 }
 
-func (p *Document) FieldAsJavascriptWScope(name string) (*JavascriptWScope, error) {
+func (p *Document) JavascriptWScope(name string) (*JavascriptWScope, error) {
 	switch elem := p.document[name].(type) {
 	default:
 		return nil, errors.New(fmt.Sprintf("field %v is not a javascript object", name))
@@ -138,7 +138,7 @@ func (p *Document) FieldAsJavascriptWScope(name string) (*JavascriptWScope, erro
 	}
 }
 
-func (p *Document) FieldAsMin(name string) (*Min, error) {
+func (p *Document) Min(name string) (*Min, error) {
 	switch elem := p.document[name].(type) {
 	default:
 		return nil, errors.New(fmt.Sprintf("field %v is not a min object", name))
@@ -147,7 +147,7 @@ func (p *Document) FieldAsMin(name string) (*Min, error) {
 	}
 }
 
-func (p *Document) FieldAsMax(name string) (*Max, error) {
+func (p *Document) Max(name string) (*Max, error) {
 	switch elem := p.document[name].(type) {
 	default:
 		return nil, errors.New(fmt.Sprintf("field %v is not a max object", name))
@@ -156,7 +156,7 @@ func (p *Document) FieldAsMax(name string) (*Max, error) {
 	}
 }
 
-func (p *Document) FieldAsArray(name string) ([]interface{}, error) {
+func (p *Document) Array(name string) ([]interface{}, error) {
 	switch elem := p.document[name].(type) {
 	default:
 		return nil, errors.New(fmt.Sprintf("field %v is not an array", name))
@@ -165,7 +165,7 @@ func (p *Document) FieldAsArray(name string) ([]interface{}, error) {
 	}
 }
 
-func (p *Document) FieldAsTime(name string) (time.Time, error) {
+func (p *Document) Time(name string) (time.Time, error) {
 	switch elem := p.document[name].(type) {
 	default:
 		return time.Unix(0, 0), errors.New(fmt.Sprintf("field %v is not a time instance", name))
@@ -174,7 +174,7 @@ func (p *Document) FieldAsTime(name string) (time.Time, error) {
 	}
 }
 
-func (p *Document) FieldAsTimestamp(name string) (*Timestamp, error) {
+func (p *Document) Timestamp(name string) (*Timestamp, error) {
 	switch elem := p.document[name].(type) {
 	default:
 		return nil, errors.New(fmt.Sprintf("field %v is not a timestamp", name))
@@ -183,7 +183,7 @@ func (p *Document) FieldAsTimestamp(name string) (*Timestamp, error) {
 	}
 }
 
-func (p *Document) FieldAsInt64(name string) (int64, error) {
+func (p *Document) Int64(name string) (int64, error) {
 	switch elem := p.document[name].(type) {
 	default:
 		return 0, errors.New(fmt.Sprintf("field %v is not an int64", name))
@@ -194,7 +194,7 @@ func (p *Document) FieldAsInt64(name string) (int64, error) {
 	}
 }
 
-func (p *Document) FieldAsUInt64(name string) (uint64, error) {
+func (p *Document) UInt64(name string) (uint64, error) {
 	switch elem := p.document[name].(type) {
 	default:
 		return 0, errors.New(fmt.Sprintf("field %v is not an uint64", name))
