@@ -1142,6 +1142,24 @@ func addDocumentToFieldStruct(fieldName string, obj reflect.Value, isDocument bo
 			// Return the new value
 			return reflect.ValueOf(doc), nil
 		}
+	} else {
+		// Get the type info
+		typeInfo := parseTypeInformation(obj)
+		structFieldName := typeInfo.Fields[fieldName].Name
+
+		// Set the field value on the struct (just set it hard)
+		// field := obj.FieldByName(structFieldName)
+
+		// Get the type information for the field
+		fieldType := obj.Type().FieldByName(structFieldName)
+		reflect.New(fieldType)
+		// fieldType.Type
+
+		// // We did not find the field on the struct
+		// if field.Kind() == reflect.Invalid {
+		// 	return errors.New(fmt.Sprintf("field %v not found on struct %v", fieldName, obj))
+		// }
+
 	}
 
 	return reflect.ValueOf(nil), errors.New("could no correctly add document to struct")
