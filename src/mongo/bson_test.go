@@ -6,7 +6,33 @@ import (
 	"reflect"
 	"testing"
 	// "time"
+	"gopkg.in/mgo.v2/bson"
 )
+
+func TestMGOSerialization(t *testing.T) {
+	t.Logf("33333")
+	type T1 struct {
+		Int int32 `bson:"int,omitempty"`
+	}
+	type T2 struct {
+		String string `bson:"string,omitempty"`
+		Doc    *T1    `bson:"doc,omitempty"`
+	}
+
+	b, err := bson.Marshal(&T2{"hello world", &T1{10}})
+	if err != nil {
+		t.Errorf("failed %v", err)
+	}
+
+	r := &T2{}
+	err = bson.Unmarshal(b, r)
+	if err != nil {
+		t.Errorf("failed %v", err)
+	}
+
+	t.Logf("%+v", r)
+	t.Logf("%+v", r.Doc)
+}
 
 func SerializeTest(t *testing.T, doc interface{}, expectedBuffer []byte) {
 	// Validate the size of the bson array
@@ -127,6 +153,7 @@ func DeserializeTest(t *testing.T, bson []byte, empty, expected interface{}) {
 
 	t.Logf("###################################################")
 	t.Logf("%+v", empty)
+	t.Logf("%+v", reflect.ValueOf(empty).Elem().FieldByName("Doc").Interface())
 
 	// switch doc := expected.(type) {
 	// case *Document:

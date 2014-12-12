@@ -1067,22 +1067,33 @@ type TypeInfo struct {
 }
 
 func parseTypeInformation(value reflect.Value) TypeInfo {
+	// We have a pointer get the underlying value
+	if value.Type().Kind() == reflect.Ptr {
+		log.Printf("============================== parseTypeInformation -2")
+		value = value.Elem()
+	}
+
+	log.Printf("============================== parseTypeInformation -1")
 	// Get the number of fields
 	numberOfFields := value.NumField()
 
+	log.Printf("============================== parseTypeInformation 0")
 	// Create typeInfo box
 	typeInfo := TypeInfo{}
 	// Pre-allocate a map with the entries we need
 	typeInfo.Fields = make(map[string]FieldInfo, numberOfFields*2)
+	log.Printf("============================== parseTypeInformation 1")
 
 	// Iterate over all the fields and collect the metadata
 	for index := 0; index < numberOfFields; index++ {
+		log.Printf("============================== parseTypeInformation 2")
 		// Get the field information
 		fieldType := value.Type().Field(index)
 		// Get the field name
 		key := fieldType.Name
 		// Get the tag for the field
 		tag := fieldType.Tag.Get("bson")
+		log.Printf("============================== parseTypeInformation 3")
 
 		// Split the tag into parts
 		parts := strings.Split(tag, ",")
@@ -1091,14 +1102,17 @@ func parseTypeInformation(value reflect.Value) TypeInfo {
 		if len(parts) > 0 && parts[0] != "" {
 			key = parts[0]
 		}
+		log.Printf("============================== parseTypeInformation 4")
 
 		// Create a new fieldInfo instance
 		fieldInfo := FieldInfo{fieldType.Name, key}
 		// Add to the map
 		typeInfo.Fields[fieldType.Name] = fieldInfo
 		typeInfo.Fields[key] = fieldInfo
+		log.Printf("============================== parseTypeInformation 5")
 	}
 
+	log.Printf("============================== parseTypeInformation 6")
 	return typeInfo
 }
 
@@ -1111,14 +1125,26 @@ func addValueToFieldStruct(fieldName string, obj reflect.Value, value interface{
 			t.Add(fieldName, value)
 		}
 	} else {
-		log.Printf("************** addStruct")
+		log.Printf("************** addStruct :: %v :: %v", fieldName, obj)
+
+		// if obj.Type().Kind() == reflect.Ptr {
+		// 	// v := obj.Elem()
+		// 	log.Printf("============================== addStruct %v", obj.)
+		// }
+
 		// Get the type info
 		typeInfo := parseTypeInformation(obj)
+		log.Printf("************** addStruct 1 :: %v\n%+v", fieldName, typeInfo.Fields)
 		structFieldName := typeInfo.Fields[fieldName].Name
+
+		if obj.Kind() == reflect.Ptr {
+			obj = obj.Elem()
+		}
 
 		// Set the field value on the struct (just set it hard)
 		field := obj.FieldByName(structFieldName)
 
+		log.Printf("************** addStruct 2 :: %v", fieldName)
 		// We did not find the field on the struct
 		if field.Kind() == reflect.Invalid {
 			return errors.New(fmt.Sprintf("field %v not found on struct %v", fieldName, obj))
@@ -1143,23 +1169,44 @@ func addDocumentToFieldStruct(fieldName string, obj reflect.Value, isDocument bo
 			return reflect.ValueOf(doc), nil
 		}
 	} else {
+		// switch obj.Kind() {
+		// case reflect.Ptr:
+		// 	log.Printf("================= reflect.Ptr")
+		// case reflect.Struct:
+		// 	v := reflect.New(obj.Type())
+		// 	log.Printf("================= reflect.Struct %v", v)
+		// }
+
 		// Get the type info
 		typeInfo := parseTypeInformation(obj)
 		structFieldName := typeInfo.Fields[fieldName].Name
 
 		// Set the field value on the struct (just set it hard)
-		// field := obj.FieldByName(structFieldName)
+		field := obj.FieldByName(structFieldName)
+		fieldType, _ := obj.Type().FieldByName(structFieldName)
 
-		// Get the type information for the field
-		fieldType := obj.Type().FieldByName(structFieldName)
-		reflect.New(fieldType.Type)
-		// fieldType.Type
+		// We did not find the field on the struct
+		if field.Kind() == reflect.Invalid {
+			return reflect.ValueOf(nil), errors.New(fmt.Sprintf("field %v not found on struct %v", fieldName, obj))
+		}
 
-		// // We did not find the field on the struct
-		// if field.Kind() == reflect.Invalid {
-		// 	return errors.New(fmt.Sprintf("field %v not found on struct %v", fieldName, obj))
-		// }
+		log.Printf("(((((((((((((((((((((((((((((((((((((((((((((((((( -1")
 
+		// log.Printf("================= reflect.Struct %v", fieldType.Type.Elem())
+		switch field.Kind() {
+		case reflect.Ptr:
+			// Get raw type
+			underlyingType := fieldType.Type.Elem()
+
+			// Create an instance
+			value := reflect.New(underlyingType)
+
+			// Set the field on the struct
+			field.Set(value)
+
+			// Return the new value
+			return value, nil
+		}
 	}
 
 	return reflect.ValueOf(nil), errors.New("could no correctly add document to struct")
@@ -1230,6 +1277,8 @@ func deserializeObject(bson []byte, index int, value reflect.Value, isDocument b
 			if err != nil {
 				return err
 			}
+
+			log.Printf(")))))))))))))))))))))))))))))))))))))))))))))))))))))\n%v", v)
 
 			// Deserialize documents
 			err = deserializeObject(bson[index:index+stringSize], 0, v, isDocument)
