@@ -1152,7 +1152,7 @@ func addDocumentToFieldStruct(fieldName string, obj reflect.Value, isDocument bo
 
 		// Get the type information for the field
 		fieldType := obj.Type().FieldByName(structFieldName)
-		reflect.New(fieldType)
+		reflect.New(fieldType.Type)
 		// fieldType.Type
 
 		// // We did not find the field on the struct
