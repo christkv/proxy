@@ -3,22 +3,32 @@ package mongo
 import (
 	"bytes"
 	// "strings"
+	"reflect"
 	"testing"
 	// "time"
 )
 
 func SerializeTest(t *testing.T, doc interface{}, expectedBuffer []byte) {
-	size, _ := CalculateObjectSize(doc)
+	// Validate the size of the bson array
+	size, _ := CalculateObjectSize(reflect.ValueOf(doc))
 	if size != len(expectedBuffer) {
 		t.Errorf("size comparison failed %v != %v", size, len(expectedBuffer))
 	}
 
-	bson, err := Serialize(doc, nil, 0)
-
-	// t.Logf("%v == %v", bson, expectedBuffer)
-
+	// Serialize the document allowing self allocation of buffer
+	bson, err := Serialize(reflect.ValueOf(doc), nil, 0)
+	// Ensure the buffers match
 	if err != nil || len(bson) != len(expectedBuffer) || bytes.Compare(bson, expectedBuffer) != 0 {
-		t.Fatalf("Illegal BSON length returned %v = %v", len(bson), len(expectedBuffer))
+		t.Fatalf("Illegal BSON returned \nexp: %v:%v\ngot: %v:%v", expectedBuffer, len(expectedBuffer), bson, len(bson))
+	}
+
+	// Serialize into pre-allocated buffer
+	bson = make([]byte, len(expectedBuffer))
+	// Serialize the document
+	bson, err = Serialize(reflect.ValueOf(doc), bson, 0)
+	// Ensure the buffers match
+	if err != nil || len(bson) != len(expectedBuffer) || bytes.Compare(bson, expectedBuffer) != 0 {
+		t.Fatalf("Illegal BSON returned \nexp: %v:%v\ngot: %v:%v", expectedBuffer, len(expectedBuffer), bson, len(bson))
 	}
 }
 
@@ -46,137 +56,86 @@ func TestDocumentWithInt32Serialization(t *testing.T) {
 	SerializeTest(t, &T{10}, expectedBuffer)
 }
 
-// func TestSimpleInt32Serialization(t *testing.T) {
-// 	var expectedBuffer = []byte{14, 0, 0, 0, 16, 105, 110, 116, 0, 10, 0, 0, 0, 0}
-// 	document := NewDocument()
-// 	document.Add("int", int32(10))
-// 	bson, err := Serialize(document, nil, 0)
+func TestSimpleStringSerialization(t *testing.T) {
+	type T struct {
+		String string `bson:"string,omitempty"`
+	}
+	// Expected buffer from serialization
+	var expectedBuffer = []byte{29, 0, 0, 0, 2, 115, 116, 114, 105, 110, 103, 0, 12, 0, 0, 0, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 0, 0}
+	document := NewDocument()
+	document.Add("string", "hello world")
 
-// 	t.Logf("[%v]", bson)
-// 	t.Logf("[%v]", expectedBuffer)
+	// Serialize tests
+	SerializeTest(t, document, expectedBuffer)
+	SerializeTest(t, &T{"hello world"}, expectedBuffer)
+}
 
-// 	if err != nil {
-// 		t.Fatalf("Failed to create bson document")
-// 	}
+func TestSimpleStringAndIntSerialization(t *testing.T) {
+	type T struct {
+		String string `bson:"string,omitempty"`
+		Int    int32  `bson:"int,omitempty"`
+	}
+	// Expected buffer from serialization
+	var expectedBuffer = []byte{38, 0, 0, 0, 2, 115, 116, 114, 105, 110, 103, 0, 12, 0, 0, 0, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 0, 16, 105, 110, 116, 0, 10, 0, 0, 0, 0}
+	document := NewDocument()
+	document.Add("string", "hello world")
+	document.Add("int", int32(10))
 
-// 	if len(bson) != len(expectedBuffer) {
-// 		t.Fatalf("Illegal BSON length returned %v = %v", len(bson), len(expectedBuffer))
-// 	}
+	// Serialize tests
+	SerializeTest(t, document, expectedBuffer)
+	SerializeTest(t, &T{"hello world", 10}, expectedBuffer)
+}
 
-// 	if bytes.Compare(bson, expectedBuffer) != 0 {
-// 		t.Fatalf("Illegal BSON returned")
-// 	}
+func TestSimpleNestedDocumentSerialization(t *testing.T) {
+	// Expected buffer from serialization
+	var expectedBuffer = []byte{48, 0, 0, 0, 2, 115, 116, 114, 105, 110, 103, 0, 12, 0, 0, 0, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 0, 3, 100, 111, 99, 0, 14, 0, 0, 0, 16, 105, 110, 116, 0, 10, 0, 0, 0, 0, 0}
+	document := NewDocument()
+	subdocument := NewDocument()
+	subdocument.Add("int", int32(10))
+	document.Add("string", "hello world")
+	document.Add("doc", subdocument)
 
-// 	// Deserialize the object
-// 	obj, err := Deserialize(expectedBuffer)
-// 	if err != nil {
-// 		t.Fatalf("Failed to deserialize the bson array")
-// 	}
+	type T1 struct {
+		Int int32 `bson:"int,omitempty"`
+	}
 
-// 	validateObjectSize(t, obj, 1)
-// 	validateIntField(t, obj, "int", int32(10))
-// }
+	type T2 struct {
+		String string `bson:"string,omitempty"`
+		Doc    *T1    `bson:"doc,omitempty"`
+	}
 
-// func TestSimpleStringSerialization(t *testing.T) {
-// 	var expectedBuffer = []byte{29, 0, 0, 0, 2, 115, 116, 114, 105, 110, 103, 0, 12, 0, 0, 0, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 0, 0}
-// 	document := NewDocument()
-// 	document.Add("string", "hello world")
-// 	bson, err := Serialize(document, nil, 0)
+	// // Serialize tests
+	// SerializeTest(t, document, expectedBuffer)
+	// SerializeTest(t, &T2{"hello world", &T1{10}}, expectedBuffer)
 
-// 	t.Logf("[%v]", bson)
-// 	t.Logf("[%v]", expectedBuffer)
+	// De serializing tests
+	// doc := NewDocument()
+	// DeserializeTest(t, expectedBuffer, doc, document)
 
-// 	if err != nil {
-// 		t.Fatalf("Failed to create bson document")
-// 	}
+	// t.Logf("################################################### 1")
+	// d, _ := doc.Document("doc")
+	// t.Logf("%+v", d)
+	DeserializeTest(t, expectedBuffer, &T2{}, &T2{"hello world", &T1{10}})
+}
 
-// 	if len(bson) != len(expectedBuffer) {
-// 		t.Fatalf("Illegal BSON length returned %v = %v", len(bson), len(expectedBuffer))
-// 	}
+func DeserializeTest(t *testing.T, bson []byte, empty, expected interface{}) {
+	// Deserialize the data into the type
+	err := Deserialize(bson, reflect.ValueOf(empty))
+	if err != nil {
+		t.Errorf("[%v] Failed to deserialize %v into type %v", err, bson, expected)
+	}
 
-// 	if bytes.Compare(bson, expectedBuffer) != 0 {
-// 		t.Fatalf("Illegal BSON returned")
-// 	}
+	t.Logf("###################################################")
+	t.Logf("%+v", empty)
 
-// 	// Deserialize the object
-// 	obj, err := Deserialize(expectedBuffer)
-// 	if err != nil {
-// 		t.Fatalf("Failed to deserialize the bson array")
-// 	}
-
-// 	validateObjectSize(t, obj, 1)
-// 	validateStringField(t, obj, "string", "hello world")
-// }
-
-// func TestSimpleStringAndIntSerialization(t *testing.T) {
-// 	var expectedBuffer = []byte{38, 0, 0, 0, 2, 115, 116, 114, 105, 110, 103, 0, 12, 0, 0, 0, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 0, 16, 105, 110, 116, 0, 10, 0, 0, 0, 0}
-// 	document := NewDocument()
-// 	document.Add("string", "hello world")
-// 	document.Add("int", int32(10))
-// 	bson, err := Serialize(document, nil, 0)
-
-// 	t.Logf("[%v]", len(bson))
-// 	t.Logf("[%v]", bson)
-// 	t.Logf("[%v]", expectedBuffer)
-
-// 	if err != nil {
-// 		t.Fatalf("Failed to create bson document %v", err)
-// 	}
-
-// 	if len(bson) != len(expectedBuffer) {
-// 		t.Fatalf("Illegal BSON length returned %v = %v", len(bson), len(expectedBuffer))
-// 	}
-
-// 	if bytes.Compare(bson, expectedBuffer) != 0 {
-// 		t.Fatalf("Illegal BSON returned")
-// 	}
-
-// 	// Deserialize the object
-// 	obj, err := Deserialize(expectedBuffer)
-// 	if err != nil {
-// 		t.Fatalf("Failed to deserialize the bson array")
-// 	}
-
-// 	validateObjectSize(t, obj, 2)
-// 	validateStringField(t, obj, "string", "hello world")
-// 	validateIntField(t, obj, "int", 10)
-// }
-
-// func TestSimpleNestedDocumentSerialization(t *testing.T) {
-// 	var expectedBuffer = []byte{48, 0, 0, 0, 2, 115, 116, 114, 105, 110, 103, 0, 12, 0, 0, 0, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 0, 3, 100, 111, 99, 0, 14, 0, 0, 0, 16, 105, 110, 116, 0, 10, 0, 0, 0, 0, 0}
-// 	document := NewDocument()
-// 	subdocument := NewDocument()
-// 	subdocument.Add("int", int32(10))
-// 	document.Add("string", "hello world")
-// 	document.Add("doc", subdocument)
-// 	bson, err := Serialize(document, nil, 0)
-
-// 	t.Logf("[%v]", len(bson))
-// 	t.Logf("[%v]", bson)
-// 	t.Logf("[%v]", expectedBuffer)
-
-// 	if err != nil {
-// 		t.Fatalf("Failed to create bson document %v", err)
-// 	}
-
-// 	if len(bson) != len(expectedBuffer) {
-// 		t.Fatalf("Illegal BSON length returned %v = %v", len(bson), len(expectedBuffer))
-// 	}
-
-// 	if bytes.Compare(bson, expectedBuffer) != 0 {
-// 		t.Fatalf("Illegal BSON returned")
-// 	}
-
-// 	// Deserialize the object
-// 	obj, err := Deserialize(expectedBuffer)
-// 	if err != nil {
-// 		t.Fatalf("Failed to deserialize the bson array")
-// 	}
-
-// 	validateObjectSize(t, obj, 2)
-// 	validateStringField(t, obj, "string", "hello world")
-// 	validateIntField(t, subDocument(obj, "doc"), "int", 10)
-// }
+	// switch doc := expected.(type) {
+	// case *Document:
+	// 	doc = Deserialize()
+	// 	t.Logf("NOT FUCK")
+	// default:
+	// 	t.Logf("FUCK %v", doc)
+	// }
+}
 
 // func TestSimpleArraySerialization(t *testing.T) {
 // 	var expectedBuffer = []byte{35, 0, 0, 0, 4, 97, 114, 114, 97, 121, 0, 23, 0, 0, 0, 2, 48, 0, 2, 0, 0, 0, 97, 0, 2, 49, 0, 2, 0, 0, 0, 98, 0, 0, 0}
