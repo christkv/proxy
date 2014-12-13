@@ -60,8 +60,16 @@ type Max struct {
 type DBPointer struct {
 }
 
-func Parse(bson []byte) (interface{}, error) {
-	return nil, nil
+type TypeInfos struct {
+}
+
+type FieldInfo struct {
+	Name         string
+	MetaDataName string
+}
+
+type TypeInfo struct {
+	Fields map[string]FieldInfo
 }
 
 func writeU32(buffer []byte, index int, value uint32) {
@@ -82,7 +90,7 @@ func writeU64(buffer []byte, index int, value uint64) {
 	buffer[index] = byte(value & 0xff)
 }
 
-func calculateElementSize(value reflect.Value) (int, error) {
+func (p *BSON) calculateElementSize(bson *BSON, value reflect.Value) (int, error) {
 	size := 0
 	// fmt.Printf("=========== calculateElementSize :: %s", value.Kind())
 
@@ -113,7 +121,7 @@ func calculateElementSize(value reflect.Value) (int, error) {
 			size = size + 12
 		case Document:
 			// fmt.Printf("got Document")
-			elementSize, err := CalculateObjectSize(value)
+			elementSize, err := bson.CalculateObjectSize(value)
 			if err != nil {
 				return size, err
 			}
@@ -122,7 +130,7 @@ func calculateElementSize(value reflect.Value) (int, error) {
 		default:
 			// fmt.Printf("got Document")
 
-			elementSize, err := CalculateObjectSize(value)
+			elementSize, err := bson.CalculateObjectSize(value)
 			if err != nil {
 				return size, err
 			}
@@ -230,7 +238,7 @@ func calculateElementSize(value reflect.Value) (int, error) {
 	// return size, nil
 }
 
-func calculateArraySize(array []interface{}) (int, error) {
+func (p *BSON) calculateArraySize(bson *BSON, array []interface{}) (int, error) {
 	size := 5
 
 	// Iterate over all the key values
@@ -239,7 +247,7 @@ func calculateArraySize(array []interface{}) (int, error) {
 		// Add the key size
 		size = size + len(indexStr) + 1 + 1
 		// Add the size of the actual element
-		elementSize, err := calculateElementSize(reflect.ValueOf(value))
+		elementSize, err := p.calculateElementSize(bson, reflect.ValueOf(value))
 
 		if err != nil {
 			return size, err
@@ -274,8 +282,8 @@ func packInt32(buffer []byte, originalIndex int, index int, value uint32) int {
 	return index + 5
 }
 
-func packElement(key string, value reflect.Value, buffer []byte, index int) (int, error) {
-	fmt.Printf("packElement %v with value %v of kind %v", key, value, value.Kind())
+func (p *BSON) packElement(key string, value reflect.Value, buffer []byte, index int) (int, error) {
+	// fmt.Printf("packElement %v with value %v of kind %v", key, value, value.Kind())
 	strbytes := []byte(key)
 	// Save a pointer to the first byte index
 	originalIndex := index
@@ -311,7 +319,7 @@ func packElement(key string, value reflect.Value, buffer []byte, index int) (int
 			// Set the type of be document
 			buffer[originalIndex] = 0x03
 			// Get the final values
-			in, err := serializeObject(buffer, index+1, value)
+			in, err := p.serializeObject(buffer, index+1, value)
 			// Serialize the object
 			return in + 1, err
 
@@ -320,7 +328,7 @@ func packElement(key string, value reflect.Value, buffer []byte, index int) (int
 			// Set the type of be document
 			buffer[originalIndex] = 0x03
 			// Get the final values
-			in, err := serializeObject(buffer, index+1, value)
+			in, err := p.serializeObject(buffer, index+1, value)
 			// Serialize the object
 			return in + 1, err
 		}
@@ -532,7 +540,7 @@ func packElement(key string, value reflect.Value, buffer []byte, index int) (int
 	// return index, nil
 }
 
-func serializeObject(buffer []byte, index int, value reflect.Value) (int, error) {
+func (p *BSON) serializeObject(buffer []byte, index int, value reflect.Value) (int, error) {
 	i := index + 4
 
 	// fmt.Printf("Serialize ========================== 0")
@@ -559,7 +567,7 @@ func serializeObject(buffer []byte, index int, value reflect.Value) (int, error)
 					// Get the value
 					fieldValue := doc.document[key]
 					// Add the size of the actual element
-					in, err := packElement(key, reflect.ValueOf(fieldValue), buffer, i)
+					in, err := p.packElement(key, reflect.ValueOf(fieldValue), buffer, i)
 					if err != nil {
 						return i, err
 					}
@@ -592,7 +600,7 @@ func serializeObject(buffer []byte, index int, value reflect.Value) (int, error)
 				}
 
 				// Add the size of the actual element
-				in, err := packElement(key, fieldValue, buffer, i)
+				in, err := p.packElement(key, fieldValue, buffer, i)
 				if err != nil {
 					return i, err
 				}
@@ -694,7 +702,16 @@ func serializeObject(buffer []byte, index int, value reflect.Value) (int, error)
 // 	return i, nil
 // }
 
-func CalculateObjectSize(value reflect.Value) (int, error) {
+type BSON struct {
+	typeInfos TypeInfos
+}
+
+func NewBSON() *BSON {
+	bson := &BSON{TypeInfos{}}
+	return bson
+}
+
+func (p *BSON) CalculateObjectSize(value reflect.Value) (int, error) {
 	// Minimum object size
 	size := 5
 
@@ -727,7 +744,7 @@ func CalculateObjectSize(value reflect.Value) (int, error) {
 					// Add the key size
 					size = size + len(key) + 1 + 1
 					// Add the size of the actual element
-					elementSize, err := calculateElementSize(reflect.ValueOf(value))
+					elementSize, err := p.calculateElementSize(p, reflect.ValueOf(value))
 
 					if err != nil {
 						return size, err
@@ -762,7 +779,7 @@ func CalculateObjectSize(value reflect.Value) (int, error) {
 				size = size + len(key) + 1 + 1
 
 				// Add the size of the actual element
-				elementSize, err := calculateElementSize(fieldValue)
+				elementSize, err := p.calculateElementSize(p, fieldValue)
 
 				if err != nil {
 					return size, err
@@ -778,7 +795,7 @@ func CalculateObjectSize(value reflect.Value) (int, error) {
 	return size, nil
 }
 
-func Serialize(obj reflect.Value, bson []byte, offset int) ([]byte, error) {
+func (p *BSON) Serialize(obj reflect.Value, bson []byte, offset int) ([]byte, error) {
 	// // Minimum object size
 	// size := 5
 
@@ -790,7 +807,7 @@ func Serialize(obj reflect.Value, bson []byte, offset int) ([]byte, error) {
 
 	if bson == nil {
 		// Calculate the size of the document
-		size, err := CalculateObjectSize(obj)
+		size, err := p.CalculateObjectSize(obj)
 		if err != nil {
 			return nil, err
 		}
@@ -799,7 +816,7 @@ func Serialize(obj reflect.Value, bson []byte, offset int) ([]byte, error) {
 		offset = 0
 	}
 
-	_, err := serializeObject(bson, offset, obj)
+	_, err := p.serializeObject(bson, offset, obj)
 	if err != nil {
 		return nil, err
 	}
@@ -1054,19 +1071,7 @@ func readUInt32(buffer []byte, index int) uint32 {
 // 	return array, nil
 // }
 
-type TypeInfos struct {
-}
-
-type FieldInfo struct {
-	Name         string
-	MetaDataName string
-}
-
-type TypeInfo struct {
-	Fields map[string]FieldInfo
-}
-
-func parseTypeInformation(value reflect.Value) TypeInfo {
+func (p *BSON) parseTypeInformation(value reflect.Value) TypeInfo {
 	// We have a pointer get the underlying value
 	if value.Type().Kind() == reflect.Ptr {
 		// fmt.Printf("============================== parseTypeInformation -2")
@@ -1116,7 +1121,7 @@ func parseTypeInformation(value reflect.Value) TypeInfo {
 	return typeInfo
 }
 
-func addValueToFieldStruct(fieldName string, obj reflect.Value, value interface{}, isDocument bool) error {
+func (p *BSON) addValueToFieldStruct(fieldName string, obj reflect.Value, value interface{}, isDocument bool) error {
 	if isDocument {
 		switch t := obj.Interface().(type) {
 		case Document:
@@ -1133,7 +1138,7 @@ func addValueToFieldStruct(fieldName string, obj reflect.Value, value interface{
 		// }
 
 		// Get the type info
-		typeInfo := parseTypeInformation(obj)
+		typeInfo := p.parseTypeInformation(obj)
 		// fmt.Printf("************** addStruct 1 :: %v\n%+v", fieldName, typeInfo.Fields)
 		structFieldName := typeInfo.Fields[fieldName].Name
 
@@ -1157,7 +1162,7 @@ func addValueToFieldStruct(fieldName string, obj reflect.Value, value interface{
 	return nil
 }
 
-func addDocumentToFieldStruct(fieldName string, obj reflect.Value, isDocument bool) (reflect.Value, error) {
+func (p *BSON) addDocumentToFieldStruct(fieldName string, obj reflect.Value, isDocument bool) (reflect.Value, error) {
 	if isDocument {
 		switch t := obj.Interface().(type) {
 		case *Document:
@@ -1185,7 +1190,7 @@ func addDocumentToFieldStruct(fieldName string, obj reflect.Value, isDocument bo
 		// }
 
 		// Get the type info
-		typeInfo := parseTypeInformation(obj)
+		typeInfo := p.parseTypeInformation(obj)
 		structFieldName := typeInfo.Fields[fieldName].Name
 
 		// Set the field value on the struct (just set it hard)
@@ -1219,7 +1224,7 @@ func addDocumentToFieldStruct(fieldName string, obj reflect.Value, isDocument bo
 	return reflect.ValueOf(nil), errors.New("could no correctly add document to struct")
 }
 
-func deserializeObject(bson []byte, index int, value reflect.Value, isDocument bool) error {
+func (p *BSON) deserializeObject(bson []byte, index int, value reflect.Value, isDocument bool) error {
 	// fmt.Printf("deserializeObject ======================================== 0\n")
 	// Alright let's parse the fields of the document
 	// Decode the length of the buffer
@@ -1268,7 +1273,7 @@ func deserializeObject(bson []byte, index int, value reflect.Value, isDocument b
 			// Skip string size
 			index = index + 4
 			// Add to the field value
-			err := addValueToFieldStruct(fieldName, value, string(bson[index:index+stringSize-1]), isDocument)
+			err := p.addValueToFieldStruct(fieldName, value, string(bson[index:index+stringSize-1]), isDocument)
 			if err != nil {
 				return err
 			}
@@ -1280,7 +1285,7 @@ func deserializeObject(bson []byte, index int, value reflect.Value, isDocument b
 			stringSize := int(readUInt32(bson, index))
 
 			// Add to the field value
-			v, err := addDocumentToFieldStruct(fieldName, value, isDocument)
+			v, err := p.addDocumentToFieldStruct(fieldName, value, isDocument)
 			if err != nil {
 				return err
 			}
@@ -1288,7 +1293,7 @@ func deserializeObject(bson []byte, index int, value reflect.Value, isDocument b
 			// fmt.Printf(")))))))))))))))))))))))))))))))))))))))))))))))))))))\n%v\n", v)
 
 			// Deserialize documents
-			err = deserializeObject(bson[index:index+stringSize], 0, v, isDocument)
+			err = p.deserializeObject(bson[index:index+stringSize], 0, v, isDocument)
 			if err != nil {
 				return err
 			}
@@ -1298,7 +1303,7 @@ func deserializeObject(bson []byte, index int, value reflect.Value, isDocument b
 		case byte(bsonInt32):
 			// fmt.Printf("deserializeObject :: int32\n")
 			// Add to the field value
-			err := addValueToFieldStruct(fieldName, value, int32(readUInt32(bson, index)), isDocument)
+			err := p.addValueToFieldStruct(fieldName, value, int32(readUInt32(bson, index)), isDocument)
 			if err != nil {
 				return err
 			}
@@ -1513,7 +1518,7 @@ func deserializeObject(bson []byte, index int, value reflect.Value, isDocument b
 	// return document, nil
 }
 
-func Deserialize(bson []byte, value reflect.Value) error {
+func (p *BSON) Deserialize(bson []byte, value reflect.Value) error {
 	// Do some basic authentication on the size
 	if len(bson) < 5 {
 		return errors.New(fmt.Sprintf("Passed in byte slice [%v] is smaller than the minimum size of 5", len(bson)))
@@ -1543,5 +1548,5 @@ func Deserialize(bson []byte, value reflect.Value) error {
 		value = value.Elem()
 	}
 
-	return deserializeObject(bson, 0, value, isDocument)
+	return p.deserializeObject(bson, 0, value, isDocument)
 }

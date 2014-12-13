@@ -36,82 +36,111 @@ import (
 // }
 
 func SerializeTest(t *testing.T, doc interface{}, expectedBuffer []byte) {
+	bson := NewBSON()
 	// Validate the size of the bson array
-	size, _ := CalculateObjectSize(reflect.ValueOf(doc))
+	size, _ := bson.CalculateObjectSize(reflect.ValueOf(doc))
 	if size != len(expectedBuffer) {
 		t.Errorf("size comparison failed %v != %v", size, len(expectedBuffer))
 	}
 
 	// Serialize the document allowing self allocation of buffer
-	bson, err := Serialize(reflect.ValueOf(doc), nil, 0)
+	b, err := bson.Serialize(reflect.ValueOf(doc), nil, 0)
 	// Ensure the buffers match
-	if err != nil || len(bson) != len(expectedBuffer) || bytes.Compare(bson, expectedBuffer) != 0 {
-		t.Fatalf("Illegal BSON returned \nexp: %v:%v\ngot: %v:%v", expectedBuffer, len(expectedBuffer), bson, len(bson))
+	if err != nil || len(b) != len(expectedBuffer) || bytes.Compare(b, expectedBuffer) != 0 {
+		t.Fatalf("Illegal BSON returned \nexp: %v:%v\ngot: %v:%v", expectedBuffer, len(expectedBuffer), b, len(b))
 	}
 
 	// Serialize into pre-allocated buffer
-	bson = make([]byte, len(expectedBuffer))
+	b = make([]byte, len(expectedBuffer))
 	// Serialize the document
-	bson, err = Serialize(reflect.ValueOf(doc), bson, 0)
+	b, err = bson.Serialize(reflect.ValueOf(doc), b, 0)
 	// Ensure the buffers match
-	if err != nil || len(bson) != len(expectedBuffer) || bytes.Compare(bson, expectedBuffer) != 0 {
-		t.Fatalf("Illegal BSON returned \nexp: %v:%v\ngot: %v:%v", expectedBuffer, len(expectedBuffer), bson, len(bson))
+	if err != nil || len(b) != len(expectedBuffer) || bytes.Compare(b, expectedBuffer) != 0 {
+		t.Fatalf("Illegal BSON returned \nexp: %v:%v\ngot: %v:%v", expectedBuffer, len(expectedBuffer), bson, len(b))
 	}
 }
 
-func TestEmptyDocumentSerialization(t *testing.T) {
-	type T struct{}
-	// Expected buffer from serialization
-	var expectedBuffer = []byte{5, 0, 0, 0, 0}
-	// Serialize tests
-	SerializeTest(t, NewDocument(), expectedBuffer)
-	SerializeTest(t, &T{}, expectedBuffer)
-}
-
-func TestDocumentWithInt32Serialization(t *testing.T) {
-	type T struct {
-		Int int32 `bson:"int,omitempty"`
+func DeserializeTest(t *testing.T, b []byte, empty interface{}, expected interface{}) {
+	bson := NewBSON()
+	// Deserialize the data into the type
+	err := bson.Deserialize(b, reflect.ValueOf(empty))
+	if err != nil {
+		t.Errorf("[%v] Failed to deserialize %v into type %v", err, b, expected)
 	}
-	// Expected buffer from serialization
-	var expectedBuffer = []byte{14, 0, 0, 0, 16, 105, 110, 116, 0, 10, 0, 0, 0, 0}
-	// Create document
-	document := NewDocument()
-	document.Add("int", int32(10))
 
-	// Serialize tests
-	SerializeTest(t, document, expectedBuffer)
-	SerializeTest(t, &T{10}, expectedBuffer)
-}
-
-func TestSimpleStringSerialization(t *testing.T) {
-	type T struct {
-		String string `bson:"string,omitempty"`
+	// Check if this is a document
+	switch doc := empty.(type) {
+	case *Document:
+		switch doc1 := expected.(type) {
+		case Document:
+			if doc1.Equal(doc) == false {
+				t.Errorf("failed to deserialize document correctly 3")
+			}
+		case *Document:
+			if doc1.Equal(doc) == false {
+				t.Errorf("failed to deserialize document correctly 4")
+			}
+		}
+	default:
+		if reflect.DeepEqual(empty, expected) == false {
+			t.Errorf("failed to deserialize struct correctly 5")
+		}
 	}
-	// Expected buffer from serialization
-	var expectedBuffer = []byte{29, 0, 0, 0, 2, 115, 116, 114, 105, 110, 103, 0, 12, 0, 0, 0, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 0, 0}
-	document := NewDocument()
-	document.Add("string", "hello world")
-
-	// Serialize tests
-	SerializeTest(t, document, expectedBuffer)
-	SerializeTest(t, &T{"hello world"}, expectedBuffer)
 }
 
-func TestSimpleStringAndIntSerialization(t *testing.T) {
-	type T struct {
-		String string `bson:"string,omitempty"`
-		Int    int32  `bson:"int,omitempty"`
-	}
-	// Expected buffer from serialization
-	var expectedBuffer = []byte{38, 0, 0, 0, 2, 115, 116, 114, 105, 110, 103, 0, 12, 0, 0, 0, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 0, 16, 105, 110, 116, 0, 10, 0, 0, 0, 0}
-	document := NewDocument()
-	document.Add("string", "hello world")
-	document.Add("int", int32(10))
+// func TestEmptyDocumentSerialization(t *testing.T) {
+// 	type T struct{}
+// 	// Expected buffer from serialization
+// 	var expectedBuffer = []byte{5, 0, 0, 0, 0}
+// 	// Serialize tests
+// 	SerializeTest(t, NewDocument(), expectedBuffer)
+// 	SerializeTest(t, &T{}, expectedBuffer)
+// }
 
-	// Serialize tests
-	SerializeTest(t, document, expectedBuffer)
-	SerializeTest(t, &T{"hello world", 10}, expectedBuffer)
-}
+// func TestDocumentWithInt32Serialization(t *testing.T) {
+// 	type T struct {
+// 		Int int32 `bson:"int,omitempty"`
+// 	}
+// 	// Expected buffer from serialization
+// 	var expectedBuffer = []byte{14, 0, 0, 0, 16, 105, 110, 116, 0, 10, 0, 0, 0, 0}
+// 	// Create document
+// 	document := NewDocument()
+// 	document.Add("int", int32(10))
+
+// 	// Serialize tests
+// 	SerializeTest(t, document, expectedBuffer)
+// 	SerializeTest(t, &T{10}, expectedBuffer)
+// }
+
+// func TestSimpleStringSerialization(t *testing.T) {
+// 	type T struct {
+// 		String string `bson:"string,omitempty"`
+// 	}
+// 	// Expected buffer from serialization
+// 	var expectedBuffer = []byte{29, 0, 0, 0, 2, 115, 116, 114, 105, 110, 103, 0, 12, 0, 0, 0, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 0, 0}
+// 	document := NewDocument()
+// 	document.Add("string", "hello world")
+
+// 	// Serialize tests
+// 	SerializeTest(t, document, expectedBuffer)
+// 	SerializeTest(t, &T{"hello world"}, expectedBuffer)
+// }
+
+// func TestSimpleStringAndIntSerialization(t *testing.T) {
+// 	type T struct {
+// 		String string `bson:"string,omitempty"`
+// 		Int    int32  `bson:"int,omitempty"`
+// 	}
+// 	// Expected buffer from serialization
+// 	var expectedBuffer = []byte{38, 0, 0, 0, 2, 115, 116, 114, 105, 110, 103, 0, 12, 0, 0, 0, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 0, 16, 105, 110, 116, 0, 10, 0, 0, 0, 0}
+// 	document := NewDocument()
+// 	document.Add("string", "hello world")
+// 	document.Add("int", int32(10))
+
+// 	// Serialize tests
+// 	SerializeTest(t, document, expectedBuffer)
+// 	SerializeTest(t, &T{"hello world", 10}, expectedBuffer)
+// }
 
 func TestSimpleNestedDocumentSerialization(t *testing.T) {
 	// Expected buffer from serialization
@@ -138,56 +167,6 @@ func TestSimpleNestedDocumentSerialization(t *testing.T) {
 	// De serializing tests
 	DeserializeTest(t, expectedBuffer, NewDocument(), document)
 	DeserializeTest(t, expectedBuffer, &T2{}, &T2{"hello world", &T1{10}})
-}
-
-func DeserializeTest(t *testing.T, bson []byte, empty interface{}, expected interface{}) {
-	// Deserialize the data into the type
-	// t.Logf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ 0")
-	err := Deserialize(bson, reflect.ValueOf(empty))
-	// t.Logf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ 1")
-	if err != nil {
-		t.Errorf("[%v] Failed to deserialize %v into type %v", err, bson, expected)
-	}
-
-	// t.Logf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n%v", empty)
-
-	// t.Logf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n%v", empty)
-
-	// Check if this is a document
-	switch doc := empty.(type) {
-	// case Document:
-	// 	switch doc1 := expected.(type) {
-	// 	case Document:
-	// 		if doc1.Equal(&doc) == false {
-	// 			t.Errorf("failed to deserialize document correctly 1")
-	// 		}
-	// 	case *Document:
-	// 		if doc1.Equal(&doc) == false {
-	// 			t.Errorf("failed to deserialize document correctly 2")
-	// 		}
-	// 	}
-	case *Document:
-		switch doc1 := expected.(type) {
-		case Document:
-			if doc1.Equal(doc) == false {
-				t.Errorf("failed to deserialize document correctly 3")
-			}
-		case *Document:
-			t.Logf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n%+v", doc1)
-			t.Logf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n%+v", doc1.FieldsInOrder())
-			t.Logf("--------------------------------------------------------")
-			t.Logf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n%+v", doc)
-			t.Logf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n%+v", doc.FieldsInOrder())
-
-			if doc1.Equal(doc) == false {
-				t.Errorf("failed to deserialize document correctly 4")
-			}
-		}
-	default:
-		if reflect.DeepEqual(empty, expected) == false {
-			t.Errorf("failed to deserialize struct correctly 5")
-		}
-	}
 }
 
 // func TestSimpleArraySerialization(t *testing.T) {
