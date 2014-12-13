@@ -9,6 +9,7 @@ _test
 mongor
 data
 db
+proxy
 
 # intellij
 .idea/

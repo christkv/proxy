@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"log"
+	// "log"
 	// "math"
 	"reflect"
 	"strconv"
@@ -84,7 +84,7 @@ func writeU64(buffer []byte, index int, value uint64) {
 
 func calculateElementSize(value reflect.Value) (int, error) {
 	size := 0
-	// log.Printf("=========== calculateElementSize :: %s", value.Kind())
+	// fmt.Printf("=========== calculateElementSize :: %s", value.Kind())
 
 	// Store original type
 	// originalValue := value
@@ -96,23 +96,23 @@ func calculateElementSize(value reflect.Value) (int, error) {
 	// Switch on the value
 	switch value.Kind() {
 	case reflect.Int32, reflect.Uint32:
-		// log.Printf("got Int32")
+		// fmt.Printf("got Int32")
 		size = size + 4
 	case reflect.Int64, reflect.Uint64, reflect.Float32, reflect.Float64:
-		// log.Printf("got Int64")
+		// fmt.Printf("got Int64")
 		size = size + 8
 	case reflect.String:
-		// log.Printf("got String")
+		// fmt.Printf("got String")
 		size = 4 + len(value.String()) + 1
 	case reflect.Struct:
-		// log.Printf("got Struct")
-		// log.Printf("############################# STRUCT HUH")
+		// fmt.Printf("got Struct")
+		// fmt.Printf("############################# STRUCT HUH")
 		// Switch on the type
 		switch value.Interface().(type) {
 		case ObjectId:
 			size = size + 12
 		case Document:
-			// log.Printf("got Document")
+			// fmt.Printf("got Document")
 			elementSize, err := CalculateObjectSize(value)
 			if err != nil {
 				return size, err
@@ -120,7 +120,7 @@ func calculateElementSize(value reflect.Value) (int, error) {
 
 			size = size + elementSize
 		default:
-			// log.Printf("got Document")
+			// fmt.Printf("got Document")
 
 			elementSize, err := CalculateObjectSize(value)
 			if err != nil {
@@ -164,7 +164,7 @@ func calculateElementSize(value reflect.Value) (int, error) {
 	// 	default:
 	// 		// switch reflect.ValueOf(elem).Type().Kind() {
 	// 		// case reflect.Struct:
-	// 		// 	log.Printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^ STRUCT")
+	// 		// 	fmt.Printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^ STRUCT")
 	// 		// 	elementSize, err := CalculateObjectSize(reflect.ValueOf(elem))
 	// 		// 	if err != nil {
 	// 		// 		return size, err
@@ -176,7 +176,7 @@ func calculateElementSize(value reflect.Value) (int, error) {
 
 	// 		// typeof := reflect.ValueOf(elem).Type()
 	// 		// // if typeof.Kind() == reflect.Ptr {
-	// 		// log.Printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^ POINTER %v", typeof)
+	// 		// fmt.Printf("^^^^^^^^^^^^^^^^^^^^^^^^^^^ POINTER %v", typeof)
 	// 		// 	// 	typeof = typeof.Elem()
 	// 		// }
 
@@ -275,7 +275,7 @@ func packInt32(buffer []byte, originalIndex int, index int, value uint32) int {
 }
 
 func packElement(key string, value reflect.Value, buffer []byte, index int) (int, error) {
-	log.Printf("packElement %v with value %v of kind %v", key, value, value.Kind())
+	fmt.Printf("packElement %v with value %v of kind %v", key, value, value.Kind())
 	strbytes := []byte(key)
 	// Save a pointer to the first byte index
 	originalIndex := index
@@ -297,17 +297,17 @@ func packElement(key string, value reflect.Value, buffer []byte, index int) (int
 	// Reflect on the type
 	switch value.Kind() {
 	case reflect.String:
-		log.Printf("packElement ================ got string")
+		// fmt.Printf("packElement ================ got string\n")
 		index = packString(buffer, originalIndex, index, value)
 	case reflect.Int32:
-		log.Printf("packElement ================ got int32 %v", value.Int())
+		// fmt.Printf("packElement ================ got int32 %v", value.Int())
 		buffer[originalIndex] = 0x10
 		writeU32(buffer, index+1, uint32(value.Int()))
 		index = index + 5
 	case reflect.Struct:
 		switch value.Interface().(type) {
 		case Document:
-			log.Printf("packElement ================ got document")
+			// fmt.Printf("packElement ================ got document")
 			// Set the type of be document
 			buffer[originalIndex] = 0x03
 			// Get the final values
@@ -316,7 +316,7 @@ func packElement(key string, value reflect.Value, buffer []byte, index int) (int
 			return in + 1, err
 
 		default:
-			log.Printf("packElement ================ got struct")
+			// fmt.Printf("packElement ================ got struct")
 			// Set the type of be document
 			buffer[originalIndex] = 0x03
 			// Get the final values
@@ -343,43 +343,43 @@ func packElement(key string, value reflect.Value, buffer []byte, index int) (int
 	// // Update the index with the field length
 	// index = index + len(strbytes)
 
-	// log.Printf("############################### PACK")
+	// fmt.Printf("############################### PACK")
 	// // Determine the type
 	// switch element := value.(type) {
 	// default:
 	// 	return index, errors.New(fmt.Sprintf("unsupported type %T", element))
 	// case reflect.Value:
-	// 	log.Printf("REFLECTED VALUE")
+	// 	fmt.Printf("REFLECTED VALUE")
 	// 	switch element.Kind() {
 	// 	case reflect.Int32:
-	// 		log.Printf("reflected int32 serialize %v", uint32(element.Int()))
+	// 		fmt.Printf("reflected int32 serialize %v", uint32(element.Int()))
 	// 		index = packInt32(buffer, originalIndex, index, uint32(element.Int()))
 	// 	case reflect.String:
-	// 		log.Printf("reflected string serialize %v", element.String())
+	// 		fmt.Printf("reflected string serialize %v", element.String())
 	// 		index = packString(buffer, originalIndex, index, element.String())
 	// 	}
 	// case int32:
-	// 	log.Printf("int32 serialize")
+	// 	fmt.Printf("int32 serialize")
 	// 	buffer[originalIndex] = 0x10
 	// 	writeU32(buffer, index+1, uint32(element))
 	// 	index = index + 5
 	// case uint32:
-	// 	log.Printf("uint32 serialize")
+	// 	fmt.Printf("uint32 serialize")
 	// 	buffer[originalIndex] = 0x10
 	// 	writeU32(buffer, index+1, element)
 	// 	index = index + 5
 	// case int64:
-	// 	log.Printf("int64 serialize")
+	// 	fmt.Printf("int64 serialize")
 	// 	buffer[originalIndex] = 0x12
 	// 	writeU64(buffer, index+1, uint64(element))
 	// 	index = index + 9
 	// case uint64:
-	// 	log.Printf("uint64 serialize")
+	// 	fmt.Printf("uint64 serialize")
 	// 	buffer[originalIndex] = 0x12
 	// 	writeU64(buffer, index+1, element)
 	// 	index = index + 9
 	// case bool:
-	// 	log.Printf("bool serialize")
+	// 	fmt.Printf("bool serialize")
 	// 	buffer[originalIndex] = 0x08
 	// 	if element {
 	// 		buffer[index+1] = 0x01
@@ -388,7 +388,7 @@ func packElement(key string, value reflect.Value, buffer []byte, index int) (int
 	// 	}
 	// 	index = index + 2
 	// case float32:
-	// 	log.Printf("float32 serialize")
+	// 	fmt.Printf("float32 serialize")
 	// 	// int64(math.Float64bits(v)
 	// 	buffer[originalIndex] = 0x01
 	// 	// Get reflection of the value
@@ -401,12 +401,12 @@ func packElement(key string, value reflect.Value, buffer []byte, index int) (int
 	// 	writeU64(buffer, index+1, math.Float64bits(value))
 	// 	index = index + 9
 	// case float64:
-	// 	log.Printf("float64 serialize")
+	// 	fmt.Printf("float64 serialize")
 	// 	buffer[originalIndex] = 0x01
 	// 	writeU64(buffer, index+1, math.Float64bits(element))
 	// 	index = index + 9
 	// case *RegExp:
-	// 	log.Printf("regexp serialize")
+	// 	fmt.Printf("regexp serialize")
 	// 	buffer[originalIndex] = 0x0b
 	// 	copy(buffer[index+1:], []byte(element.Pattern))
 	// 	index = index + 1 + len(element.Pattern)
@@ -414,34 +414,34 @@ func packElement(key string, value reflect.Value, buffer []byte, index int) (int
 	// 	copy(buffer[index+1:], []byte(element.Options))
 	// 	index = index + 1 + len(element.Options) + 1
 	// case *Timestamp:
-	// 	log.Printf("timestamp serialize")
+	// 	fmt.Printf("timestamp serialize")
 	// 	buffer[originalIndex] = 0x11
 	// 	writeU64(buffer, index+1, uint64(element.Value))
 	// 	index = index + 9
 	// case *Date:
-	// 	log.Printf("date serialize")
+	// 	fmt.Printf("date serialize")
 	// 	buffer[originalIndex] = 0x09
 	// 	writeU64(buffer, index+1, uint64(element.Value))
 	// 	index = index + 9
 	// case *time.Time:
-	// 	log.Printf("*time.Time serialize")
+	// 	fmt.Printf("*time.Time serialize")
 	// 	buffer[originalIndex] = 0x09
 	// 	writeU64(buffer, index+1, uint64(element.Unix()))
 	// 	index = index + 9
 	// case time.Time:
-	// 	log.Printf("time.Time serialize")
+	// 	fmt.Printf("time.Time serialize")
 	// 	buffer[originalIndex] = 0x09
 	// 	writeU64(buffer, index+1, uint64(element.Unix()))
 	// 	index = index + 9
 	// case nil:
-	// 	log.Printf("nil serialize")
+	// 	fmt.Printf("nil serialize")
 	// 	buffer[originalIndex] = 0x0a
 	// 	index = index + 1
 	// case string:
-	// 	log.Printf("string serialize")
+	// 	fmt.Printf("string serialize")
 	// 	index = packString(buffer, originalIndex, index, element)
 	// case []interface{}:
-	// 	log.Printf("array serialize %v", index)
+	// 	fmt.Printf("array serialize %v", index)
 	// 	// Set the type of be document
 	// 	buffer[originalIndex] = 0x04
 	// 	// Get the final values
@@ -449,7 +449,7 @@ func packElement(key string, value reflect.Value, buffer []byte, index int) (int
 	// 	// Serialize the object
 	// 	return in + 1, err
 	// case *Document:
-	// 	log.Printf("document serialize %v", index)
+	// 	fmt.Printf("document serialize %v", index)
 	// 	// Set the type of be document
 	// 	buffer[originalIndex] = 0x03
 	// 	// Get the final values
@@ -457,7 +457,7 @@ func packElement(key string, value reflect.Value, buffer []byte, index int) (int
 	// 	// Serialize the object
 	// 	return in + 1, err
 	// case *ObjectId:
-	// 	log.Printf("objectid serialize %v", index)
+	// 	fmt.Printf("objectid serialize %v", index)
 	// 	if len(element.Id) != 12 {
 	// 		return 0, errors.New("ObjectId must be a 12 byte array")
 	// 	}
@@ -467,7 +467,7 @@ func packElement(key string, value reflect.Value, buffer []byte, index int) (int
 	// 	copy(buffer[index+1:], element.Id)
 	// 	return index + len(element.Id) + 1, nil
 	// case []byte:
-	// 	log.Printf("[]byte serialize %v", index)
+	// 	fmt.Printf("[]byte serialize %v", index)
 	// 	// Set the type of be document
 	// 	buffer[originalIndex] = 0x05
 	// 	// Set the size of the binary
@@ -478,7 +478,7 @@ func packElement(key string, value reflect.Value, buffer []byte, index int) (int
 	// 	// Return the length
 	// 	return index + len(element) + 5 + 1, nil
 	// case *Binary:
-	// 	log.Printf("binary serialize %v", index)
+	// 	fmt.Printf("binary serialize %v", index)
 	// 	// Set the type of be document
 	// 	buffer[originalIndex] = 0x05
 	// 	// Set the size of the binary
@@ -489,7 +489,7 @@ func packElement(key string, value reflect.Value, buffer []byte, index int) (int
 	// 	// Return the length
 	// 	return index + len(element.Data) + 5 + 1, nil
 	// case *Javascript:
-	// 	log.Printf("javascript no scope serialize %v", index)
+	// 	fmt.Printf("javascript no scope serialize %v", index)
 	// 	// Set the type of be document
 	// 	buffer[originalIndex] = 0x0d
 	// 	stringBytes := []byte(element.Code)
@@ -498,7 +498,7 @@ func packElement(key string, value reflect.Value, buffer []byte, index int) (int
 	// 	buffer[index+5+len(stringBytes)] = 0x00
 	// 	index = index + 4 + len(stringBytes) + 1 + 1
 	// case *JavascriptWScope:
-	// 	log.Printf("javascript scope serialize %v", index)
+	// 	fmt.Printf("javascript scope serialize %v", index)
 	// 	buffer[originalIndex] = 0x0f
 	// 	stringBytes := []byte(element.Code)
 	// 	// Skip the length
@@ -519,11 +519,11 @@ func packElement(key string, value reflect.Value, buffer []byte, index int) (int
 	// 	writeU32(buffer, lengthIndex, uint32(in-lengthIndex+1))
 	// 	return in + 1, err
 	// case *Min:
-	// 	log.Printf("min serialize %v", index)
+	// 	fmt.Printf("min serialize %v", index)
 	// 	buffer[originalIndex] = 0xFF
 	// 	index = index + 1
 	// case *Max:
-	// 	log.Printf("max serialize %v", index)
+	// 	fmt.Printf("max serialize %v", index)
 	// 	buffer[originalIndex] = 0x7F
 	// 	index = index + 1
 	// }
@@ -535,7 +535,7 @@ func packElement(key string, value reflect.Value, buffer []byte, index int) (int
 func serializeObject(buffer []byte, index int, value reflect.Value) (int, error) {
 	i := index + 4
 
-	log.Printf("Serialize ========================== 0")
+	// fmt.Printf("Serialize ========================== 0")
 
 	// We have a pointer get the underlying value
 	if value.Kind() == reflect.Ptr {
@@ -545,17 +545,17 @@ func serializeObject(buffer []byte, index int, value reflect.Value) (int, error)
 	// Switch on the value
 	switch value.Kind() {
 	case reflect.Struct:
-		log.Printf("Serialize ========================== 1")
+		// fmt.Printf("Serialize ========================== 1")
 		switch value.Interface().(type) {
 		case Document:
 			// Cast to document type
 			switch doc := value.Interface().(type) {
 			case Document:
-				log.Printf("GOT *Document, %v", doc.fields)
+				// fmt.Printf("GOT *Document, %v", doc.fields)
 
 				// Iterate over all the key values
 				for _, key := range doc.fields {
-					log.Printf("key :: %v", key)
+					// fmt.Printf("key :: %v", key)
 					// Get the value
 					fieldValue := doc.document[key]
 					// Add the size of the actual element
@@ -570,8 +570,8 @@ func serializeObject(buffer []byte, index int, value reflect.Value) (int, error)
 				return i, errors.New(fmt.Sprintf("BSON struct type %T not supported for serialization", doc))
 			}
 		default:
-			log.Printf("Serialize ========================== 2")
-			log.Printf("GOT *Struct")
+			// fmt.Printf("Serialize ========================== 2")
+			// fmt.Printf("GOT *Struct")
 			numberOfField := value.NumField()
 
 			// Let's iterate over all the fields
@@ -601,8 +601,8 @@ func serializeObject(buffer []byte, index int, value reflect.Value) (int, error)
 			}
 		}
 	default:
-		log.Printf("Serialize ========================== 3")
-		log.Printf("BSON struct type %T not supported for serialization", value)
+		// fmt.Printf("Serialize ========================== 3")
+		// fmt.Printf("BSON struct type %T not supported for serialization", value)
 		return i, errors.New(fmt.Sprintf("BSON struct type %T not supported for serialization", value))
 	}
 
@@ -632,7 +632,7 @@ func serializeObject(buffer []byte, index int, value reflect.Value) (int, error)
 	// case reflect.Value:
 	// 	numberOfField := document.NumField()
 
-	// 	log.Printf("number of fields off struct %v", numberOfField)
+	// 	fmt.Printf("number of fields off struct %v", numberOfField)
 
 	// 	// Let's iterate over all the fields
 	// 	for j := 0; j < numberOfField; j++ {
@@ -651,7 +651,7 @@ func serializeObject(buffer []byte, index int, value reflect.Value) (int, error)
 	// 			key = parts[0]
 	// 		}
 
-	// 		log.Printf("serialize field %v of type %v with tag %v at index %v", key, fieldValue, tag, index)
+	// 		fmt.Printf("serialize field %v of type %v with tag %v at index %v", key, fieldValue, tag, index)
 
 	// 		// Add the size of the actual element
 	// 		in, err := packElement(key, fieldValue, buffer, i)
@@ -706,7 +706,7 @@ func CalculateObjectSize(value reflect.Value) (int, error) {
 
 	// var obj interface{}
 
-	// log.Printf("CalculateObjectSize ========================== 0")
+	// fmt.Printf("CalculateObjectSize ========================== 0")
 
 	// Switch on the value
 	switch value.Kind() {
@@ -718,7 +718,7 @@ func CalculateObjectSize(value reflect.Value) (int, error) {
 			// Cast to document type
 			switch doc := value.Interface().(type) {
 			case Document:
-				// log.Printf("GOT *Document, %v", doc.fields)
+				// fmt.Printf("GOT *Document, %v", doc.fields)
 
 				// Iterate over all the key values
 				for _, key := range doc.fields {
@@ -816,7 +816,7 @@ func Serialize(obj reflect.Value, bson []byte, offset int) ([]byte, error) {
 	// 			return nil, err
 	// 		}
 
-	// 		log.Printf("size of bson element %v", size)
+	// 		fmt.Printf("size of bson element %v", size)
 
 	// 		// Allocate space
 	// 		bson = make([]byte, size)
@@ -843,15 +843,15 @@ func Serialize(obj reflect.Value, bson []byte, offset int) ([]byte, error) {
 	// 	case reflect.Struct:
 	// 		// We are not using our own buffer to serialize into
 	// 		if bson == nil {
-	// 			log.Printf("##########################################################")
+	// 			fmt.Printf("##########################################################")
 	// 			// Calculate the size of the document
 	// 			size, err := CalculateObjectSize(reflect.ValueOf(document))
 	// 			if err != nil {
-	// 				log.Printf("%v", err)
+	// 				fmt.Printf("%v", err)
 	// 				return nil, err
 	// 			}
 
-	// 			log.Printf("size of bson element %v", size)
+	// 			fmt.Printf("size of bson element %v", size)
 
 	// 			// Allocate space
 	// 			bson = make([]byte, size)
@@ -1069,31 +1069,31 @@ type TypeInfo struct {
 func parseTypeInformation(value reflect.Value) TypeInfo {
 	// We have a pointer get the underlying value
 	if value.Type().Kind() == reflect.Ptr {
-		log.Printf("============================== parseTypeInformation -2")
+		// fmt.Printf("============================== parseTypeInformation -2")
 		value = value.Elem()
 	}
 
-	log.Printf("============================== parseTypeInformation -1")
+	// fmt.Printf("============================== parseTypeInformation -1")
 	// Get the number of fields
 	numberOfFields := value.NumField()
 
-	log.Printf("============================== parseTypeInformation 0")
+	// fmt.Printf("============================== parseTypeInformation 0")
 	// Create typeInfo box
 	typeInfo := TypeInfo{}
 	// Pre-allocate a map with the entries we need
 	typeInfo.Fields = make(map[string]FieldInfo, numberOfFields*2)
-	log.Printf("============================== parseTypeInformation 1")
+	// fmt.Printf("============================== parseTypeInformation 1")
 
 	// Iterate over all the fields and collect the metadata
 	for index := 0; index < numberOfFields; index++ {
-		log.Printf("============================== parseTypeInformation 2")
+		// fmt.Printf("============================== parseTypeInformation 2")
 		// Get the field information
 		fieldType := value.Type().Field(index)
 		// Get the field name
 		key := fieldType.Name
 		// Get the tag for the field
 		tag := fieldType.Tag.Get("bson")
-		log.Printf("============================== parseTypeInformation 3")
+		// fmt.Printf("============================== parseTypeInformation 3")
 
 		// Split the tag into parts
 		parts := strings.Split(tag, ",")
@@ -1102,17 +1102,17 @@ func parseTypeInformation(value reflect.Value) TypeInfo {
 		if len(parts) > 0 && parts[0] != "" {
 			key = parts[0]
 		}
-		log.Printf("============================== parseTypeInformation 4")
+		// fmt.Printf("============================== parseTypeInformation 4")
 
 		// Create a new fieldInfo instance
 		fieldInfo := FieldInfo{fieldType.Name, key}
 		// Add to the map
 		typeInfo.Fields[fieldType.Name] = fieldInfo
 		typeInfo.Fields[key] = fieldInfo
-		log.Printf("============================== parseTypeInformation 5")
+		// fmt.Printf("============================== parseTypeInformation 5")
 	}
 
-	log.Printf("============================== parseTypeInformation 6")
+	// fmt.Printf("============================== parseTypeInformation 6")
 	return typeInfo
 }
 
@@ -1125,16 +1125,16 @@ func addValueToFieldStruct(fieldName string, obj reflect.Value, value interface{
 			t.Add(fieldName, value)
 		}
 	} else {
-		log.Printf("************** addStruct :: %v :: %v", fieldName, obj)
+		// fmt.Printf("************** addStruct :: %v :: %v", fieldName, obj)
 
 		// if obj.Type().Kind() == reflect.Ptr {
 		// 	// v := obj.Elem()
-		// 	log.Printf("============================== addStruct %v", obj.)
+		// 	fmt.Printf("============================== addStruct %v", obj.)
 		// }
 
 		// Get the type info
 		typeInfo := parseTypeInformation(obj)
-		log.Printf("************** addStruct 1 :: %v\n%+v", fieldName, typeInfo.Fields)
+		// fmt.Printf("************** addStruct 1 :: %v\n%+v", fieldName, typeInfo.Fields)
 		structFieldName := typeInfo.Fields[fieldName].Name
 
 		if obj.Kind() == reflect.Ptr {
@@ -1144,7 +1144,7 @@ func addValueToFieldStruct(fieldName string, obj reflect.Value, value interface{
 		// Set the field value on the struct (just set it hard)
 		field := obj.FieldByName(structFieldName)
 
-		log.Printf("************** addStruct 2 :: %v", fieldName)
+		// fmt.Printf("************** addStruct 2 :: %v", fieldName)
 		// We did not find the field on the struct
 		if field.Kind() == reflect.Invalid {
 			return errors.New(fmt.Sprintf("field %v not found on struct %v", fieldName, obj))
@@ -1160,6 +1160,13 @@ func addValueToFieldStruct(fieldName string, obj reflect.Value, value interface{
 func addDocumentToFieldStruct(fieldName string, obj reflect.Value, isDocument bool) (reflect.Value, error) {
 	if isDocument {
 		switch t := obj.Interface().(type) {
+		case *Document:
+			// Create a new document
+			doc := NewDocument()
+			// Add the field
+			t.Add(fieldName, doc)
+			// Return the new value
+			return reflect.ValueOf(doc), nil
 		case Document:
 			// Create a new document
 			doc := NewDocument()
@@ -1171,10 +1178,10 @@ func addDocumentToFieldStruct(fieldName string, obj reflect.Value, isDocument bo
 	} else {
 		// switch obj.Kind() {
 		// case reflect.Ptr:
-		// 	log.Printf("================= reflect.Ptr")
+		// 	fmt.Printf("================= reflect.Ptr")
 		// case reflect.Struct:
 		// 	v := reflect.New(obj.Type())
-		// 	log.Printf("================= reflect.Struct %v", v)
+		// 	fmt.Printf("================= reflect.Struct %v", v)
 		// }
 
 		// Get the type info
@@ -1190,9 +1197,9 @@ func addDocumentToFieldStruct(fieldName string, obj reflect.Value, isDocument bo
 			return reflect.ValueOf(nil), errors.New(fmt.Sprintf("field %v not found on struct %v", fieldName, obj))
 		}
 
-		log.Printf("(((((((((((((((((((((((((((((((((((((((((((((((((( -1")
+		// fmt.Printf("(((((((((((((((((((((((((((((((((((((((((((((((((( -1")
 
-		// log.Printf("================= reflect.Struct %v", fieldType.Type.Elem())
+		// fmt.Printf("================= reflect.Struct %v", fieldType.Type.Elem())
 		switch field.Kind() {
 		case reflect.Ptr:
 			// Get raw type
@@ -1213,7 +1220,7 @@ func addDocumentToFieldStruct(fieldName string, obj reflect.Value, isDocument bo
 }
 
 func deserializeObject(bson []byte, index int, value reflect.Value, isDocument bool) error {
-	log.Printf("deserializeObject ======================================== 0")
+	// fmt.Printf("deserializeObject ======================================== 0\n")
 	// Alright let's parse the fields of the document
 	// Decode the length of the buffer
 	documentSize := readUInt32(bson, index)
@@ -1250,12 +1257,12 @@ func deserializeObject(bson []byte, index int, value reflect.Value, isDocument b
 		// Adjust index with the string length
 		index = index + strindex + 1
 
-		log.Printf("=========== fieldname :: %v type :: %v", fieldName, bsonType)
+		// fmt.Printf("=========== fieldname :: %v type :: %v\n", fieldName, bsonType)
 
 		// Switch on type to decode
 		switch bsonType {
 		case byte(bsonString):
-			log.Printf("deserializeObject :: string")
+			// fmt.Printf("deserializeObject :: string\n")
 			// Read the string size
 			stringSize := int(readUInt32(bson, index))
 			// Skip string size
@@ -1268,7 +1275,7 @@ func deserializeObject(bson []byte, index int, value reflect.Value, isDocument b
 			// Skip last null byte and size of string
 			index = index + stringSize
 		case byte(bsonDocument):
-			log.Printf("deserializeObject :: document")
+			// fmt.Printf("deserializeObject :: document\n")
 			// Read the document size
 			stringSize := int(readUInt32(bson, index))
 
@@ -1278,7 +1285,7 @@ func deserializeObject(bson []byte, index int, value reflect.Value, isDocument b
 				return err
 			}
 
-			log.Printf(")))))))))))))))))))))))))))))))))))))))))))))))))))))\n%v", v)
+			// fmt.Printf(")))))))))))))))))))))))))))))))))))))))))))))))))))))\n%v\n", v)
 
 			// Deserialize documents
 			err = deserializeObject(bson[index:index+stringSize], 0, v, isDocument)
@@ -1289,7 +1296,7 @@ func deserializeObject(bson []byte, index int, value reflect.Value, isDocument b
 			// Skip last null byte and size of string
 			index = index + stringSize
 		case byte(bsonInt32):
-			log.Printf("deserializeObject :: int32")
+			// fmt.Printf("deserializeObject :: int32\n")
 			// Add to the field value
 			err := addValueToFieldStruct(fieldName, value, int32(readUInt32(bson, index)), isDocument)
 			if err != nil {
@@ -1338,7 +1345,7 @@ func deserializeObject(bson []byte, index int, value reflect.Value, isDocument b
 	// 	// Adjust index with the string length
 	// 	index = index + strindex + 1
 
-	// 	log.Printf("=========== fieldname :: %v type :: %v", fieldName, bsonType)
+	// 	fmt.Printf("=========== fieldname :: %v type :: %v", fieldName, bsonType)
 
 	// 	// Switch on type to decode
 	// 	switch bsonType {
@@ -1523,28 +1530,18 @@ func Deserialize(bson []byte, value reflect.Value) error {
 	// Do we want a pure doc representation instead of serialized struct
 	isDocument := false
 
-	log.Printf("======= DERSERIALIZE 0")
+	// Check if we have a *Document or Document instance
+	switch value.Interface().(type) {
+	case *Document:
+		isDocument = true
+	case Document:
+		isDocument = true
+	}
 
-	// We have a pointer get the underlying value
-	if value.Kind() == reflect.Ptr {
+	// If we have a pointer get to the value object
+	if isDocument == false && value.Kind() == reflect.Ptr {
 		value = value.Elem()
 	}
 
-	// Switch on the value, validate if we have a document type or not
-	switch value.Kind() {
-	case reflect.Struct:
-		log.Printf("======= DERSERIALIZE 1")
-		switch value.Interface().(type) {
-		case Document:
-			log.Printf("======= DERSERIALIZE 2")
-			isDocument = true
-		}
-	default:
-		log.Printf("======= DERSERIALIZE 0:1")
-		log.Printf(fmt.Sprintf("cannot deserialize into type %v", value))
-		return errors.New(fmt.Sprintf("cannot deserialize into type %v", value))
-	}
-
-	// We can start decoding the document
 	return deserializeObject(bson, 0, value, isDocument)
 }

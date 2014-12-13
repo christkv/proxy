@@ -2,37 +2,38 @@ package mongo
 
 import (
 	"bytes"
+	// "fmt"
 	// "strings"
 	"reflect"
 	"testing"
 	// "time"
-	"gopkg.in/mgo.v2/bson"
+	// "gopkg.in/mgo.v2/bson"
 )
 
-func TestMGOSerialization(t *testing.T) {
-	t.Logf("33333")
-	type T1 struct {
-		Int int32 `bson:"int,omitempty"`
-	}
-	type T2 struct {
-		String string `bson:"string,omitempty"`
-		Doc    *T1    `bson:"doc,omitempty"`
-	}
+// func TestMGOSerialization(t *testing.T) {
+// 	t.Logf("33333")
+// 	type T1 struct {
+// 		Int int32 `bson:"int,omitempty"`
+// 	}
+// 	type T2 struct {
+// 		String string `bson:"string,omitempty"`
+// 		Doc    *T1    `bson:"doc,omitempty"`
+// 	}
 
-	b, err := bson.Marshal(&T2{"hello world", &T1{10}})
-	if err != nil {
-		t.Errorf("failed %v", err)
-	}
+// 	b, err := bson.Marshal(&T2{"hello world", &T1{10}})
+// 	if err != nil {
+// 		t.Errorf("failed %v", err)
+// 	}
 
-	r := &T2{}
-	err = bson.Unmarshal(b, r)
-	if err != nil {
-		t.Errorf("failed %v", err)
-	}
+// 	r := &T2{}
+// 	err = bson.Unmarshal(b, r)
+// 	if err != nil {
+// 		t.Errorf("failed %v", err)
+// 	}
 
-	t.Logf("%+v", r)
-	t.Logf("%+v", r.Doc)
-}
+// 	t.Logf("%+v", r)
+// 	t.Logf("%+v", r.Doc)
+// }
 
 func SerializeTest(t *testing.T, doc interface{}, expectedBuffer []byte) {
 	// Validate the size of the bson array
@@ -130,38 +131,63 @@ func TestSimpleNestedDocumentSerialization(t *testing.T) {
 		Doc    *T1    `bson:"doc,omitempty"`
 	}
 
-	// // Serialize tests
-	// SerializeTest(t, document, expectedBuffer)
-	// SerializeTest(t, &T2{"hello world", &T1{10}}, expectedBuffer)
+	// Serialize tests
+	SerializeTest(t, document, expectedBuffer)
+	SerializeTest(t, &T2{"hello world", &T1{10}}, expectedBuffer)
 
 	// De serializing tests
-	// doc := NewDocument()
-	// DeserializeTest(t, expectedBuffer, doc, document)
-
-	// t.Logf("################################################### 1")
-	// d, _ := doc.Document("doc")
-	// t.Logf("%+v", d)
+	DeserializeTest(t, expectedBuffer, NewDocument(), document)
 	DeserializeTest(t, expectedBuffer, &T2{}, &T2{"hello world", &T1{10}})
 }
 
-func DeserializeTest(t *testing.T, bson []byte, empty, expected interface{}) {
+func DeserializeTest(t *testing.T, bson []byte, empty interface{}, expected interface{}) {
 	// Deserialize the data into the type
+	// t.Logf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ 0")
 	err := Deserialize(bson, reflect.ValueOf(empty))
+	// t.Logf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ 1")
 	if err != nil {
 		t.Errorf("[%v] Failed to deserialize %v into type %v", err, bson, expected)
 	}
 
-	t.Logf("###################################################")
-	t.Logf("%+v", empty)
-	t.Logf("%+v", reflect.ValueOf(empty).Elem().FieldByName("Doc").Interface())
+	// t.Logf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n%v", empty)
 
-	// switch doc := expected.(type) {
-	// case *Document:
-	// 	doc = Deserialize()
-	// 	t.Logf("NOT FUCK")
-	// default:
-	// 	t.Logf("FUCK %v", doc)
-	// }
+	// t.Logf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n%v", empty)
+
+	// Check if this is a document
+	switch doc := empty.(type) {
+	// case Document:
+	// 	switch doc1 := expected.(type) {
+	// 	case Document:
+	// 		if doc1.Equal(&doc) == false {
+	// 			t.Errorf("failed to deserialize document correctly 1")
+	// 		}
+	// 	case *Document:
+	// 		if doc1.Equal(&doc) == false {
+	// 			t.Errorf("failed to deserialize document correctly 2")
+	// 		}
+	// 	}
+	case *Document:
+		switch doc1 := expected.(type) {
+		case Document:
+			if doc1.Equal(doc) == false {
+				t.Errorf("failed to deserialize document correctly 3")
+			}
+		case *Document:
+			t.Logf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n%+v", doc1)
+			t.Logf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n%+v", doc1.FieldsInOrder())
+			t.Logf("--------------------------------------------------------")
+			t.Logf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n%+v", doc)
+			t.Logf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n%+v", doc.FieldsInOrder())
+
+			if doc1.Equal(doc) == false {
+				t.Errorf("failed to deserialize document correctly 4")
+			}
+		}
+	default:
+		if reflect.DeepEqual(empty, expected) == false {
+			t.Errorf("failed to deserialize struct correctly 5")
+		}
+	}
 }
 
 // func TestSimpleArraySerialization(t *testing.T) {

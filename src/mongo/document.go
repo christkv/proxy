@@ -3,6 +3,8 @@ package mongo
 import (
 	"errors"
 	"fmt"
+	"log"
+	"reflect"
 	"time"
 )
 
@@ -203,6 +205,62 @@ func (p *Document) UInt64(name string) (uint64, error) {
 	case int64:
 		return uint64(elem), nil
 	}
+}
+
+func (p *Document) Equal(doc *Document) bool {
+	// Get the current fields in order
+	docFields1 := p.FieldsInOrder()
+	// Get the passed in fields
+	docFields2 := doc.FieldsInOrder()
+
+	// Validate that the
+	if len(docFields1) != len(docFields2) {
+		return false
+	}
+
+	// Compare all the fields
+	for i, _ := range docFields1 {
+		// Get key/value 1
+		name1 := docFields1[i].Name
+		value1 := docFields1[i].Value
+		// Get key/value 2
+		name2 := docFields2[i].Name
+		value2 := docFields2[i].Value
+
+		// Names does not match
+		if name1 != name2 {
+			return false
+		}
+
+		// Check if it's a document type
+		switch val1 := value1.(type) {
+		case Document:
+
+			switch val2 := value2.(type) {
+			case Document:
+				if val1.Equal(&val2) == false {
+					return false
+				}
+			default:
+				return false
+			}
+		case *Document:
+			switch val2 := value2.(type) {
+			case *Document:
+				if val1.Equal(val2) == false {
+					return false
+				}
+			}
+		}
+
+		// Perform a reflection equality
+		if reflect.DeepEqual(value1, value2) == false {
+			log.Printf("%+v != %+v", value1, value2)
+			return false
+		}
+	}
+
+	return true
 }
 
 func (p *Document) FieldsInOrder() []KeyValue {
