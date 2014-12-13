@@ -61,15 +61,16 @@ type DBPointer struct {
 }
 
 type TypeInfos struct {
+	Types map[string]*TypeInfo
+}
+
+type TypeInfo struct {
+	Fields map[string]*FieldInfo
 }
 
 type FieldInfo struct {
 	Name         string
 	MetaDataName string
-}
-
-type TypeInfo struct {
-	Fields map[string]FieldInfo
 }
 
 func writeU32(buffer []byte, index int, value uint32) {
@@ -707,7 +708,7 @@ type BSON struct {
 }
 
 func NewBSON() *BSON {
-	bson := &BSON{TypeInfos{}}
+	bson := &BSON{TypeInfos{make(map[string]*TypeInfo)}}
 	return bson
 }
 
@@ -1071,14 +1072,19 @@ func readUInt32(buffer []byte, index int) uint32 {
 // 	return array, nil
 // }
 
-func (p *BSON) parseTypeInformation(value reflect.Value) TypeInfo {
+func (p *BSON) parseTypeInformation(value reflect.Value) *TypeInfo {
 	// We have a pointer get the underlying value
 	if value.Type().Kind() == reflect.Ptr {
 		// fmt.Printf("============================== parseTypeInformation -2")
 		value = value.Elem()
 	}
 
-	// fmt.Printf("============================== parseTypeInformation -1")
+	// Reuse type information if already present
+	if p.typeInfos.Types[value.Type().Name()] != nil {
+		return p.typeInfos.Types[value.Type().Name()]
+	}
+
+	// fmt.Printf("============================== parseTypeInformation -1 %v\n", value.Type().Name())
 	// Get the number of fields
 	numberOfFields := value.NumField()
 
@@ -1086,7 +1092,7 @@ func (p *BSON) parseTypeInformation(value reflect.Value) TypeInfo {
 	// Create typeInfo box
 	typeInfo := TypeInfo{}
 	// Pre-allocate a map with the entries we need
-	typeInfo.Fields = make(map[string]FieldInfo, numberOfFields*2)
+	typeInfo.Fields = make(map[string]*FieldInfo, numberOfFields*2)
 	// fmt.Printf("============================== parseTypeInformation 1")
 
 	// Iterate over all the fields and collect the metadata
@@ -1112,13 +1118,16 @@ func (p *BSON) parseTypeInformation(value reflect.Value) TypeInfo {
 		// Create a new fieldInfo instance
 		fieldInfo := FieldInfo{fieldType.Name, key}
 		// Add to the map
-		typeInfo.Fields[fieldType.Name] = fieldInfo
-		typeInfo.Fields[key] = fieldInfo
+		typeInfo.Fields[fieldType.Name] = &fieldInfo
+		typeInfo.Fields[key] = &fieldInfo
 		// fmt.Printf("============================== parseTypeInformation 5")
 	}
 
+	// Save type
+	p.typeInfos.Types[value.Type().Name()] = &typeInfo
+
 	// fmt.Printf("============================== parseTypeInformation 6")
-	return typeInfo
+	return &typeInfo
 }
 
 func (p *BSON) addValueToFieldStruct(fieldName string, obj reflect.Value, value interface{}, isDocument bool) error {
@@ -1135,6 +1144,12 @@ func (p *BSON) addValueToFieldStruct(fieldName string, obj reflect.Value, value 
 		// if obj.Type().Kind() == reflect.Ptr {
 		// 	// v := obj.Elem()
 		// 	fmt.Printf("============================== addStruct %v", obj.)
+		// }
+
+		// fmt.Printf("TYPE NAME %v\n", obj.Type().Name())
+
+		// if p.typeInfos[obj.Type().Name()] == nil {
+
 		// }
 
 		// Get the type info
