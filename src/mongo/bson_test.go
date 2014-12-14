@@ -63,7 +63,7 @@ func SerializeTest(t *testing.T, doc interface{}, expectedBuffer []byte) {
 func DeserializeTest(t *testing.T, b []byte, empty interface{}, expected interface{}) {
 	bson := NewBSON()
 	// Deserialize the data into the type
-	err := bson.Deserialize(b, reflect.ValueOf(empty))
+	err := bson.Deserialize(b, empty)
 	if err != nil {
 		t.Errorf("[%v] Failed to deserialize %v into type %v", err, b, expected)
 	}

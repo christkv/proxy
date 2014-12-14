@@ -1133,28 +1133,12 @@ func (p *BSON) parseTypeInformation(value reflect.Value) *TypeInfo {
 func (p *BSON) addValueToFieldStruct(fieldName string, obj reflect.Value, value interface{}, isDocument bool) error {
 	if isDocument {
 		switch t := obj.Interface().(type) {
-		case Document:
-			t.Add(fieldName, value)
 		case *Document:
 			t.Add(fieldName, value)
 		}
 	} else {
-		// fmt.Printf("************** addStruct :: %v :: %v", fieldName, obj)
-
-		// if obj.Type().Kind() == reflect.Ptr {
-		// 	// v := obj.Elem()
-		// 	fmt.Printf("============================== addStruct %v", obj.)
-		// }
-
-		// fmt.Printf("TYPE NAME %v\n", obj.Type().Name())
-
-		// if p.typeInfos[obj.Type().Name()] == nil {
-
-		// }
-
 		// Get the type info
 		typeInfo := p.parseTypeInformation(obj)
-		// fmt.Printf("************** addStruct 1 :: %v\n%+v", fieldName, typeInfo.Fields)
 		structFieldName := typeInfo.Fields[fieldName].Name
 
 		if obj.Kind() == reflect.Ptr {
@@ -1164,7 +1148,6 @@ func (p *BSON) addValueToFieldStruct(fieldName string, obj reflect.Value, value 
 		// Set the field value on the struct (just set it hard)
 		field := obj.FieldByName(structFieldName)
 
-		// fmt.Printf("************** addStruct 2 :: %v", fieldName)
 		// We did not find the field on the struct
 		if field.Kind() == reflect.Invalid {
 			return errors.New(fmt.Sprintf("field %v not found on struct %v", fieldName, obj))
@@ -1187,23 +1170,8 @@ func (p *BSON) addDocumentToFieldStruct(fieldName string, obj reflect.Value, isD
 			t.Add(fieldName, doc)
 			// Return the new value
 			return reflect.ValueOf(doc), nil
-		case Document:
-			// Create a new document
-			doc := NewDocument()
-			// Add the field
-			t.Add(fieldName, doc)
-			// Return the new value
-			return reflect.ValueOf(doc), nil
 		}
 	} else {
-		// switch obj.Kind() {
-		// case reflect.Ptr:
-		// 	fmt.Printf("================= reflect.Ptr")
-		// case reflect.Struct:
-		// 	v := reflect.New(obj.Type())
-		// 	fmt.Printf("================= reflect.Struct %v", v)
-		// }
-
 		// Get the type info
 		typeInfo := p.parseTypeInformation(obj)
 		structFieldName := typeInfo.Fields[fieldName].Name
@@ -1217,9 +1185,6 @@ func (p *BSON) addDocumentToFieldStruct(fieldName string, obj reflect.Value, isD
 			return reflect.ValueOf(nil), errors.New(fmt.Sprintf("field %v not found on struct %v", fieldName, obj))
 		}
 
-		// fmt.Printf("(((((((((((((((((((((((((((((((((((((((((((((((((( -1")
-
-		// fmt.Printf("================= reflect.Struct %v", fieldType.Type.Elem())
 		switch field.Kind() {
 		case reflect.Ptr:
 			// Get raw type
@@ -1533,11 +1498,14 @@ func (p *BSON) deserializeObject(bson []byte, index int, value reflect.Value, is
 	// return document, nil
 }
 
-func (p *BSON) Deserialize(bson []byte, value reflect.Value) error {
+func (p *BSON) Deserialize(bson []byte, obj interface{}) error {
 	// Do some basic authentication on the size
 	if len(bson) < 5 {
 		return errors.New(fmt.Sprintf("Passed in byte slice [%v] is smaller than the minimum size of 5", len(bson)))
 	}
+
+	// Get value type
+	value := reflect.ValueOf(obj)
 
 	// Decode the length of the buffer
 	documentSize := readUInt32(bson, 0)
@@ -1554,13 +1522,21 @@ func (p *BSON) Deserialize(bson []byte, value reflect.Value) error {
 	switch value.Interface().(type) {
 	case *Document:
 		isDocument = true
-	case Document:
-		isDocument = true
 	}
 
 	// If we have a pointer get to the value object
 	if isDocument == false && value.Kind() == reflect.Ptr {
-		value = value.Elem()
+		// v := reflect.ValueOf(out)
+		switch value.Kind() {
+		case reflect.Ptr:
+			// 	fallthrough
+			// case reflect.Map:
+			value = value.Elem()
+		case reflect.Struct:
+			return errors.New("must be a pointer to a struct or Document")
+		default:
+			return errors.New("must be a pointer to a struct or Document")
+		}
 	}
 
 	return p.deserializeObject(bson, 0, value, isDocument)
