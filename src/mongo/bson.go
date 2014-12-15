@@ -104,6 +104,10 @@ func readUInt32(buffer []byte, index int) uint32 {
 		(uint32(buffer[index+3]) << 24)
 }
 
+type Getter interface {
+	GetBSON() (interface{}, error)
+}
+
 type BSON struct {
 	typeInfos *TypeInfos
 }

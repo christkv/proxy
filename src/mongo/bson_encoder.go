@@ -129,9 +129,20 @@ func (p *encoder) packElement(key string, value reflect.Value) error {
 }
 
 func (p *encoder) addDoc(value reflect.Value) error {
-	// We have a pointer get the underlying value
-	if value.Kind() == reflect.Ptr {
-		value = value.Elem()
+	for {
+		if vi, ok := value.Interface().(Getter); ok {
+			getv, err := vi.GetBSON()
+			if err != nil {
+				panic(err)
+			}
+			value = reflect.ValueOf(getv)
+			continue
+		}
+		if value.Kind() == reflect.Ptr {
+			value = value.Elem()
+			continue
+		}
+		break
 	}
 
 	// Switch on the value

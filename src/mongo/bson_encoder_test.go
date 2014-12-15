@@ -105,3 +105,22 @@ func TestSimpleNestedDocumentSerialization(t *testing.T) {
 	DeserializeTest(t, expectedBuffer, NewDocument(), document)
 	DeserializeTest(t, expectedBuffer, &T2{}, &T2{"hello world", &T1{10}})
 }
+
+type GetBSONT1 struct {
+	Int int32 `bson:"int,omitempty"`
+}
+
+func (p *GetBSONT1) GetBSON() (interface{}, error) {
+	return &GetBSONT2{"hello world"}, nil
+}
+
+type GetBSONT2 struct {
+	String string `bson:"string,omitempty"`
+}
+
+func TestSimpleGetBSONReplacement(t *testing.T) {
+	var expectedBuffer = []byte{29, 0, 0, 0, 2, 115, 116, 114, 105, 110, 103, 0, 12, 0, 0, 0, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 0, 0}
+
+	// Serialize tests
+	SerializeTest(t, &GetBSONT1{10}, expectedBuffer)
+}
