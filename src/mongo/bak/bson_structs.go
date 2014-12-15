@@ -1,11 +1,11 @@
-package mongo
+package bak
 
-import (
+// import (
 // "errors"
 // "log"
 // "reflect"
 // "strings"
-)
+// )
 
 // func SerializeStruct(obj interface{}, bson []byte, offset int) ([]byte, error) {
 // 	typeof := reflect.ValueOf(obj)
