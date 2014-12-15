@@ -60,6 +60,7 @@ type TypeInfos struct {
 type TypeInfo struct {
 	Fields        map[string]*FieldInfo
 	FieldsByIndex []*FieldInfo
+	NumberOfField int
 }
 
 type FieldInfo struct {
@@ -83,6 +84,24 @@ func writeU64(buffer []byte, index int, value uint64) {
 	buffer[index+2] = byte((value >> 16) & 0xff)
 	buffer[index+1] = byte((value >> 8) & 0xff)
 	buffer[index] = byte(value & 0xff)
+}
+
+func readUInt64(buffer []byte, index int) uint64 {
+	return (uint64(buffer[index]) << 0) |
+		(uint64(buffer[index+1]) << 8) |
+		(uint64(buffer[index+2]) << 16) |
+		(uint64(buffer[index+3]) << 24) |
+		(uint64(buffer[index+4]) << 32) |
+		(uint64(buffer[index+5]) << 40) |
+		(uint64(buffer[index+6]) << 48) |
+		(uint64(buffer[index+7]) << 56)
+}
+
+func readUInt32(buffer []byte, index int) uint32 {
+	return (uint32(buffer[index]) << 0) |
+		(uint32(buffer[index+1]) << 8) |
+		(uint32(buffer[index+2]) << 16) |
+		(uint32(buffer[index+3]) << 24)
 }
 
 type BSON struct {
@@ -112,6 +131,7 @@ func parseTypeInformation(typeInfos *TypeInfos, value reflect.Value) *TypeInfo {
 	// Pre-allocate a map with the entries we need
 	typeInfo.Fields = make(map[string]*FieldInfo, numberOfFields*2)
 	typeInfo.FieldsByIndex = make([]*FieldInfo, numberOfFields)
+	typeInfo.NumberOfField = numberOfFields
 
 	// Iterate over all the fields and collect the metadata
 	for index := 0; index < numberOfFields; index++ {

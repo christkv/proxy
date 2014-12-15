@@ -1,6 +1,7 @@
 package mongo
 
 import (
+	"gopkg.in/mgo.v2/bson"
 	"testing"
 )
 
@@ -16,10 +17,10 @@ func BenchmarkNestedDocumentSerializationStruct(b *testing.B) {
 
 	// parser := NewBSON()
 	obj := &T2{"hello world", &T1{10}}
-	bson := NewBSON()
+	parser := NewBSON()
 
 	for n := 0; n < b.N; n++ {
-		bson.Marshall(obj, nil, 0)
+		parser.Marshall(obj, nil, 0)
 	}
 }
 
@@ -39,8 +40,98 @@ func BenchmarkNestedDocumentSerializationDocument(b *testing.B) {
 		Doc    *T1    `bson:"doc,omitempty"`
 	}
 
-	bson := NewBSON()
+	parser := NewBSON()
 	for n := 0; n < b.N; n++ {
-		bson.Marshall(document, nil, 0)
+		parser.Marshall(document, nil, 0)
+	}
+}
+
+func BenchmarkNestedDocumentSerializationStructOverFlow64bytes(b *testing.B) {
+	type T1 struct {
+		Int int32 `bson:"int,omitempty"`
+	}
+
+	type T2 struct {
+		String string `bson:"string,omitempty"`
+		Doc    *T1    `bson:"doc,omitempty"`
+	}
+
+	// parser := NewBSON()
+	obj := &T2{"hello world hello world hello world hello world hello world hello world", &T1{10}}
+	parser := NewBSON()
+
+	for n := 0; n < b.N; n++ {
+		parser.Marshall(obj, nil, 0)
+	}
+}
+
+func BenchmarkNestedDocumentSerializationMGO(b *testing.B) {
+	type T1 struct {
+		Int int32 `bson:"int,omitempty"`
+	}
+
+	type T2 struct {
+		String string `bson:"string,omitempty"`
+		Doc    *T1    `bson:"doc,omitempty"`
+	}
+
+	obj := &T2{"hello world", &T1{10}}
+
+	for n := 0; n < b.N; n++ {
+		bson.Marshal(obj)
+	}
+}
+
+func BenchmarkNestedDocumentSerializationMGOverflow64Bytes(b *testing.B) {
+	type T1 struct {
+		Int int32 `bson:"int,omitempty"`
+	}
+
+	type T2 struct {
+		String string `bson:"string,omitempty"`
+		Doc    *T1    `bson:"doc,omitempty"`
+	}
+
+	obj := &T2{"hello world hello world hello world hello world hello world hello world", &T1{10}}
+
+	for n := 0; n < b.N; n++ {
+		bson.Marshal(obj)
+	}
+}
+
+func BenchmarkNestedDocumentDeserialization(b *testing.B) {
+	type T1 struct {
+		Int int32 `bson:"int,omitempty"`
+	}
+
+	type T2 struct {
+		String string `bson:"string,omitempty"`
+		Doc    *T1    `bson:"doc,omitempty"`
+	}
+
+	parser := NewBSON()
+	data := []byte{48, 0, 0, 0, 2, 115, 116, 114, 105, 110, 103, 0, 12, 0, 0, 0, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 0, 3, 100, 111, 99, 0, 14, 0, 0, 0, 16, 105, 110, 116, 0, 10, 0, 0, 0, 0, 0}
+	obj := &T2{}
+
+	for n := 0; n < b.N; n++ {
+		parser.Unmarshal(data, obj)
+	}
+}
+
+func BenchmarkNestedDocumentDeserializationMGO(b *testing.B) {
+	type T1 struct {
+		Int int32 `bson:"int,omitempty"`
+	}
+
+	type T2 struct {
+		String string `bson:"string,omitempty"`
+		Doc    *T1    `bson:"doc,omitempty"`
+	}
+
+	data := []byte{48, 0, 0, 0, 2, 115, 116, 114, 105, 110, 103, 0, 12, 0, 0, 0, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 0, 3, 100, 111, 99, 0, 14, 0, 0, 0, 16, 105, 110, 116, 0, 10, 0, 0, 0, 0, 0}
+	obj := &T2{}
+
+	for n := 0; n < b.N; n++ {
+		bson.Unmarshal(data, obj)
 	}
 }

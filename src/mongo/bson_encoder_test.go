@@ -4,24 +4,17 @@ import (
 	"bytes"
 	// "fmt"
 	// "strings"
-	// "reflect"
+	"reflect"
 	"testing"
 	// "time"
 )
 
 func SerializeTest(t *testing.T, doc interface{}, expectedBuffer []byte) {
-	// bson := ()
-	// // Validate the size of the bson array
-	// size, _ := bson.CalculateObjectSize(reflect.ValueOf(doc))
-	// if size != len(expectedBuffer) {
-	// 	t.Errorf("size comparison failed %v != %v", size, len(expectedBuffer))
-	// }
-
 	parser := NewBSON()
 	// Serialize the document allowing self allocation of buffer
 	b, err := parser.Marshall(doc, nil, 0)
 
-	t.Logf("%s", b)
+	// t.Logf("%s", b)
 
 	// Ensure the buffers match
 	if err != nil || len(b) != len(expectedBuffer) || bytes.Compare(b, expectedBuffer) != 0 {
@@ -38,33 +31,53 @@ func SerializeTest(t *testing.T, doc interface{}, expectedBuffer []byte) {
 	}
 }
 
-// func DeserializeTest(t *testing.T, b []byte, empty interface{}, expected interface{}) {
-// 	bson := NewBSON()
-// 	// Deserialize the data into the type
-// 	err := bson.Deserialize(b, empty)
-// 	if err != nil {
-// 		t.Errorf("[%v] Failed to deserialize %v into type %v", err, b, expected)
-// 	}
+func DeserializeTest(t *testing.T, b []byte, empty interface{}, expected interface{}) {
+	parser := NewBSON()
+	// Deserialize the data into the type
+	err := parser.Unmarshal(b, empty)
+	if err != nil {
+		t.Errorf("[%v] Failed to unmarshal %v into type %v", err, b, expected)
+	}
 
-// 	// Check if this is a document
-// 	switch doc := empty.(type) {
-// 	case *Document:
-// 		switch doc1 := expected.(type) {
-// 		case Document:
-// 			if doc1.Equal(doc) == false {
-// 				t.Errorf("failed to deserialize document correctly 3")
-// 			}
-// 		case *Document:
-// 			if doc1.Equal(doc) == false {
-// 				t.Errorf("failed to deserialize document correctly 4")
-// 			}
-// 		}
-// 	default:
-// 		if reflect.DeepEqual(empty, expected) == false {
-// 			t.Errorf("failed to deserialize struct correctly 5")
-// 		}
-// 	}
-// }
+	// Check if this is a document
+	switch doc := empty.(type) {
+	case *Document:
+		switch doc1 := expected.(type) {
+		case *Document:
+			if doc1.Equal(doc) == false {
+				t.Errorf("failed to unmarshal document correctly 4")
+			}
+		}
+	default:
+		if reflect.DeepEqual(empty, expected) == false {
+			t.Errorf("failed to unmarshal struct correctly 5")
+		}
+	}
+}
+
+func TestOverflowDefaultBufferSize(t *testing.T) {
+	type T1 struct {
+		Int int32 `bson:"int,omitempty"`
+	}
+
+	type T2 struct {
+		String string `bson:"string,omitempty"`
+		Doc    *T1    `bson:"doc,omitempty"`
+	}
+
+	// Should correctly create bson from struct
+	doc := &T2{"hello world hello world hello world hello world hello world hello world", &T1{10}}
+	parser := NewBSON()
+	parser.Marshall(doc, nil, 0)
+
+	// Should correctly create bson from Document
+	document := NewDocument()
+	subdocument := NewDocument()
+	subdocument.Add("int", int32(10))
+	document.Add("string", "hello world hello world hello world hello world hello world hello world")
+	document.Add("doc", subdocument)
+	parser.Marshall(document, nil, 0)
+}
 
 func TestSimpleNestedDocumentSerialization(t *testing.T) {
 	// Expected buffer from serialization
@@ -85,10 +98,10 @@ func TestSimpleNestedDocumentSerialization(t *testing.T) {
 	}
 
 	// // Serialize tests
-	// SerializeTest(t, &T2{"hello world", &T1{10}}, expectedBuffer)
+	SerializeTest(t, &T2{"hello world", &T1{10}}, expectedBuffer)
 	SerializeTest(t, document, expectedBuffer)
 
-	// // De serializing tests
-	// DeserializeTest(t, expectedBuffer, NewDocument(), document)
-	// DeserializeTest(t, expectedBuffer, &T2{}, &T2{"hello world", &T1{10}})
+	// De serializing tests
+	DeserializeTest(t, expectedBuffer, NewDocument(), document)
+	DeserializeTest(t, expectedBuffer, &T2{}, &T2{"hello world", &T1{10}})
 }
