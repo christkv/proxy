@@ -4,12 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strings"
+	// "strings"
 )
 
 type encoder struct {
-	out   []byte
-	index int
+	out       []byte
+	index     int
+	typeInfos *TypeInfos
 }
 
 //
@@ -19,7 +20,7 @@ const initialAllocationSize = 64
 //
 // Encode a value into a BSON byte array
 //
-func Marshall(doc interface{}, buffer []byte, offset int) ([]byte, error) {
+func (p *BSON) Marshall(doc interface{}, buffer []byte, offset int) ([]byte, error) {
 	var out []byte
 	var index int
 
@@ -32,7 +33,7 @@ func Marshall(doc interface{}, buffer []byte, offset int) ([]byte, error) {
 		index = 0
 	}
 
-	encoder := &encoder{out, index}
+	encoder := &encoder{out, index, p.typeInfos}
 	err := encoder.addDoc(reflect.ValueOf(doc))
 	if err != nil {
 		return nil, err
@@ -82,19 +83,19 @@ func (p *encoder) packElement(key string, value reflect.Value) error {
 	// Reflect on the type
 	switch value.Kind() {
 	case reflect.String:
-		fmt.Printf("packElement ================ got string %v = %v\n", key, value.String())
+		// fmt.Printf("packElement ================ got string %v = %v\n", key, value.String())
 		p.index = p.packString(originalIndex, value)
 	case reflect.Int32:
-		fmt.Printf("packElement ================ got int32 %v = %v\n", key, value.Int())
+		// fmt.Printf("packElement ================ got int32 %v = %v\n", key, value.Int())
 		p.out[originalIndex] = 0x10
 		writeU32(p.out, p.index+1, uint32(value.Int()))
 		p.index = p.index + 5
 	case reflect.Struct:
-		fmt.Printf("packElement ================ got document %v\n", value.Interface())
+		// fmt.Printf("packElement ================ got document %v\n", value.Interface())
 		switch value.Interface().(type) {
 		case Document:
 			// fallthrough
-			fmt.Printf("packElement ================ got document\n")
+			// fmt.Printf("packElement ================ got document\n")
 			// Set the type of be document
 			p.out[originalIndex] = 0x03
 			// Skip initial byte
@@ -103,7 +104,7 @@ func (p *encoder) packElement(key string, value reflect.Value) error {
 			return p.addDoc(value)
 
 		default:
-			fmt.Printf("packElement ================ got struct %v = %v at %v\n", key, value, p.index)
+			// fmt.Printf("packElement ================ got struct %v = %v at %v\n", key, value, p.index)
 			// Set the type of be document
 			p.out[originalIndex] = 0x03
 			// Skip initial byte
@@ -112,7 +113,7 @@ func (p *encoder) packElement(key string, value reflect.Value) error {
 			return p.addDoc(value)
 		}
 	default:
-		fmt.Printf("could not recognize the type %v\n", value.Kind())
+		// fmt.Printf("could not recognize the type %v\n", value.Kind())
 		return errors.New(fmt.Sprintf("could not recognize the type %v", value.Kind()))
 	}
 
@@ -120,7 +121,7 @@ func (p *encoder) packElement(key string, value reflect.Value) error {
 }
 
 func (p *encoder) addDoc(value reflect.Value) error {
-	fmt.Printf("============================== serialize addDoc = %v\n", value.Kind())
+	// fmt.Printf("============================== serialize addDoc = %v\n", value.Kind())
 	// We have a pointer get the underlying value
 	if value.Kind() == reflect.Ptr {
 		value = value.Elem()
@@ -129,7 +130,7 @@ func (p *encoder) addDoc(value reflect.Value) error {
 	// Switch on the value
 	switch value.Kind() {
 	case reflect.Struct:
-		fmt.Printf("============================== serialize addDoc struct\n")
+		// fmt.Printf("============================== serialize addDoc struct\n")
 		// Save current index for the writing of the total size of the doc
 		originalIndex := p.index
 
@@ -139,7 +140,7 @@ func (p *encoder) addDoc(value reflect.Value) error {
 		// Check if we have the Document type or a normal struct
 		switch doc := value.Interface().(type) {
 		case Document:
-			fmt.Printf("============================== serialize document\n")
+			// fmt.Printf("============================== serialize document\n")
 
 			// Iterate over all the key values
 			for _, key := range doc.fields {
@@ -153,25 +154,29 @@ func (p *encoder) addDoc(value reflect.Value) error {
 				}
 			}
 		default:
-			fmt.Printf("============================== serialize interface\n")
+			typeInfo := parseTypeInformation(p.typeInfos, value)
+
+			// fmt.Printf("============================== serialize interface\n")
 			numberOfField := value.NumField()
 
 			// Let's iterate over all the fields
 			for j := 0; j < numberOfField; j++ {
 				// Get the field value
 				fieldValue := value.Field(j)
-				fieldType := value.Type().Field(j)
+				// Get field type
+				fieldType := typeInfo.FieldsByIndex[j]
 				// Get the field name
 				key := fieldType.Name
-				// Get the tag
-				tag := fieldType.Tag.Get("bson")
-				// Split the tag into parts
-				parts := strings.Split(tag, ",")
 
-				// Override the key if the metadata has one
-				if len(parts) > 0 && parts[0] != "" {
-					key = parts[0]
-				}
+				// // Get the tag
+				// tag := fieldType.Tag.Get("bson")
+				// // Split the tag into parts
+				// parts := strings.Split(tag, ",")
+
+				// // Override the key if the metadata has one
+				// if len(parts) > 0 && parts[0] != "" {
+				// 	key = parts[0]
+				// }
 
 				// Add the size of the actual element
 				err := p.packElement(key, fieldValue)

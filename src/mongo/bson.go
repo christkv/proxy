@@ -1,5 +1,10 @@
 package mongo
 
+import (
+	"reflect"
+	"strings"
+)
+
 type bsonType byte
 
 const (
@@ -53,7 +58,8 @@ type TypeInfos struct {
 }
 
 type TypeInfo struct {
-	Fields map[string]*FieldInfo
+	Fields        map[string]*FieldInfo
+	FieldsByIndex []*FieldInfo
 }
 
 type FieldInfo struct {
@@ -77,4 +83,63 @@ func writeU64(buffer []byte, index int, value uint64) {
 	buffer[index+2] = byte((value >> 16) & 0xff)
 	buffer[index+1] = byte((value >> 8) & 0xff)
 	buffer[index] = byte(value & 0xff)
+}
+
+type BSON struct {
+	typeInfos *TypeInfos
+}
+
+func NewBSON() *BSON {
+	return &BSON{&TypeInfos{make(map[string]*TypeInfo)}}
+}
+
+func parseTypeInformation(typeInfos *TypeInfos, value reflect.Value) *TypeInfo {
+	// We have a pointer get the underlying value
+	if value.Type().Kind() == reflect.Ptr {
+		value = value.Elem()
+	}
+
+	// Reuse type information if already present
+	if typeInfos.Types[value.Type().Name()] != nil {
+		return typeInfos.Types[value.Type().Name()]
+	}
+
+	// Get the number of fields
+	numberOfFields := value.NumField()
+
+	// Create typeInfo box
+	typeInfo := TypeInfo{}
+	// Pre-allocate a map with the entries we need
+	typeInfo.Fields = make(map[string]*FieldInfo, numberOfFields*2)
+	typeInfo.FieldsByIndex = make([]*FieldInfo, numberOfFields)
+
+	// Iterate over all the fields and collect the metadata
+	for index := 0; index < numberOfFields; index++ {
+		// Get the field information
+		fieldType := value.Type().Field(index)
+		// Get the field name
+		key := fieldType.Name
+		// Get the tag for the field
+		tag := fieldType.Tag.Get("bson")
+
+		// Split the tag into parts
+		parts := strings.Split(tag, ",")
+
+		// Override the key if the metadata has one
+		if len(parts) > 0 && parts[0] != "" {
+			key = parts[0]
+		}
+
+		// Create a new fieldInfo instance
+		fieldInfo := FieldInfo{fieldType.Name, key}
+		// Add to the map
+		typeInfo.Fields[fieldType.Name] = &fieldInfo
+		typeInfo.Fields[key] = &fieldInfo
+		typeInfo.FieldsByIndex[index] = &fieldInfo
+	}
+
+	// Save type
+	typeInfos.Types[value.Type().Name()] = &typeInfo
+	// Return the type information
+	return &typeInfo
 }

@@ -17,8 +17,9 @@ func SerializeTest(t *testing.T, doc interface{}, expectedBuffer []byte) {
 	// 	t.Errorf("size comparison failed %v != %v", size, len(expectedBuffer))
 	// }
 
+	parser := NewBSON()
 	// Serialize the document allowing self allocation of buffer
-	b, err := Marshall(doc, nil, 0)
+	b, err := parser.Marshall(doc, nil, 0)
 
 	t.Logf("%s", b)
 
@@ -30,7 +31,7 @@ func SerializeTest(t *testing.T, doc interface{}, expectedBuffer []byte) {
 	// Serialize into pre-allocated buffer
 	b = make([]byte, len(expectedBuffer))
 	// Serialize the document
-	b, err = Marshall(doc, b, 0)
+	b, err = parser.Marshall(doc, b, 0)
 	// Ensure the buffers match
 	if err != nil || len(b) != len(expectedBuffer) || bytes.Compare(b, expectedBuffer) != 0 {
 		t.Fatalf("Illegal BSON returned \nexp: %v:%v\ngot: %v:%v", expectedBuffer, len(expectedBuffer), b, len(b))
