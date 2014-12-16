@@ -146,7 +146,7 @@ func (p *BSON) addValueToFieldStruct(fieldName string, obj reflect.Value, value 
 		}
 	} else {
 		// Get the type info
-		typeInfo := parseTypeInformation(p.typeInfos, obj)
+		typeInfo := parseTypeInformation(p.typeInfos, obj, obj)
 		structFieldName := typeInfo.Fields[fieldName].Name
 
 		if obj.Kind() == reflect.Ptr {
@@ -181,7 +181,7 @@ func (p *BSON) addDocumentToFieldStruct(fieldName string, obj reflect.Value, isD
 		}
 	} else {
 		// Get the type info
-		typeInfo := parseTypeInformation(p.typeInfos, obj)
+		typeInfo := parseTypeInformation(p.typeInfos, obj, obj)
 		structFieldName := typeInfo.Fields[fieldName].Name
 
 		// Set the field value on the struct (just set it hard)

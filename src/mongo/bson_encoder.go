@@ -129,21 +129,26 @@ func (p *encoder) packElement(key string, value reflect.Value) error {
 }
 
 func (p *encoder) addDoc(value reflect.Value) error {
+	// fmt.Printf("======================= addDoc %v\n", value)
+	originalValue := value
+	// fmt.Printf("======================= addDoc 1 %v\n", originalValue)
+
 	for {
-		if vi, ok := value.Interface().(Getter); ok {
-			getv, err := vi.GetBSON()
-			if err != nil {
-				panic(err)
-			}
-			value = reflect.ValueOf(getv)
-			continue
-		}
+		// if vi, ok := value.Interface().(Getter); ok {
+		// 	getv, err := vi.GetBSON()
+		// 	if err != nil {
+		// 		panic(err)
+		// 	}
+		// 	value = reflect.ValueOf(getv)
+		// 	continue
+		// }
 		if value.Kind() == reflect.Ptr {
 			value = value.Elem()
 			continue
 		}
 		break
 	}
+	// fmt.Printf("======================= addDoc 2 %v\n", originalValue)
 
 	// Switch on the value
 	switch value.Kind() {
@@ -168,7 +173,33 @@ func (p *encoder) addDoc(value reflect.Value) error {
 				}
 			}
 		default:
-			typeInfo := parseTypeInformation(p.typeInfos, value)
+			// Get type information for current value
+			typeInfo := parseTypeInformation(p.typeInfos, originalValue, value)
+
+			// Do we have a GetBSON method, execute it
+			if typeInfo.HasGetBSON {
+				// Execute GetBSON method
+				if vi, ok := originalValue.Interface().(Getter); ok {
+					getv, err := vi.GetBSON()
+					if err != nil {
+						panic(err)
+					}
+					value = reflect.ValueOf(getv)
+
+					// Look up correct type information for the returned type
+					typeInfo = parseTypeInformation(p.typeInfos, value, value)
+				}
+
+				// Locate value object in case a pointer was returned
+				for {
+					if value.Kind() == reflect.Ptr {
+						value = value.Elem()
+						continue
+					}
+					break
+				}
+			}
+
 			// Let's iterate over all the fields
 			for j := 0; j < typeInfo.NumberOfField; j++ {
 				// Get the field value
