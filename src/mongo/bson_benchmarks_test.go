@@ -5,25 +5,6 @@ import (
 	"testing"
 )
 
-func BenchmarkNestedDocumentSerializationStruct(b *testing.B) {
-	type T1 struct {
-		Int int32 `bson:"int,omitempty"`
-	}
-
-	type T2 struct {
-		String string `bson:"string,omitempty"`
-		Doc    *T1    `bson:"doc,omitempty"`
-	}
-
-	// parser := NewBSON()
-	obj := &T2{"hello world", &T1{10}}
-	parser := NewBSON()
-
-	for n := 0; n < b.N; n++ {
-		parser.Marshall(obj, nil, 0)
-	}
-}
-
 func BenchmarkNestedDocumentSerializationDocument(b *testing.B) {
 	document := NewDocument()
 	subdocument := NewDocument()
@@ -46,7 +27,7 @@ func BenchmarkNestedDocumentSerializationDocument(b *testing.B) {
 	}
 }
 
-func BenchmarkNestedDocumentSerializationStructOverFlow64bytes(b *testing.B) {
+func BenchmarkNestedDocumentSerializationStruct(b *testing.B) {
 	type T1 struct {
 		Int int32 `bson:"int,omitempty"`
 	}
@@ -57,7 +38,7 @@ func BenchmarkNestedDocumentSerializationStructOverFlow64bytes(b *testing.B) {
 	}
 
 	// parser := NewBSON()
-	obj := &T2{"hello world hello world hello world hello world hello world hello world", &T1{10}}
+	obj := &T2{"hello world", &T1{10}}
 	parser := NewBSON()
 
 	for n := 0; n < b.N; n++ {
@@ -79,6 +60,25 @@ func BenchmarkNestedDocumentSerializationMGO(b *testing.B) {
 
 	for n := 0; n < b.N; n++ {
 		bson.Marshal(obj)
+	}
+}
+
+func BenchmarkNestedDocumentSerializationStructOverFlow64bytes(b *testing.B) {
+	type T1 struct {
+		Int int32 `bson:"int,omitempty"`
+	}
+
+	type T2 struct {
+		String string `bson:"string,omitempty"`
+		Doc    *T1    `bson:"doc,omitempty"`
+	}
+
+	// parser := NewBSON()
+	obj := &T2{"hello world hello world hello world hello world hello world hello world", &T1{10}}
+	parser := NewBSON()
+
+	for n := 0; n < b.N; n++ {
+		parser.Marshall(obj, nil, 0)
 	}
 }
 
@@ -133,5 +133,34 @@ func BenchmarkNestedDocumentDeserializationMGO(b *testing.B) {
 
 	for n := 0; n < b.N; n++ {
 		bson.Unmarshal(data, obj)
+	}
+}
+
+type GetBSONBenchmarkT1 struct {
+	Int int32 `bson:"int,omitempty"`
+}
+
+func (p *GetBSONBenchmarkT1) GetBSON() (interface{}, error) {
+	return &GetBSONBenchmarkT2{"hello world"}, nil
+}
+
+type GetBSONBenchmarkT2 struct {
+	String string `bson:"string,omitempty"`
+}
+
+func BenchmarkGetBSONSerialization(b *testing.B) {
+	doc := &GetBSONT1{10}
+	parser := NewBSON()
+
+	for n := 0; n < b.N; n++ {
+		parser.Marshall(doc, nil, 0)
+	}
+}
+
+func BenchmarkGetBSONSerializationMGO(b *testing.B) {
+	doc := &GetBSONT1{10}
+
+	for n := 0; n < b.N; n++ {
+		bson.Marshal(doc)
 	}
 }

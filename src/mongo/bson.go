@@ -59,11 +59,10 @@ type TypeInfos struct {
 }
 
 type TypeInfo struct {
-	Fields          map[string]*FieldInfo
-	FieldsByIndex   []*FieldInfo
-	NumberOfField   int
-	NumberOfMethods int
-	HasGetBSON      bool
+	Fields        map[string]*FieldInfo
+	FieldsByIndex []*FieldInfo
+	NumberOfField int
+	HasGetBSON    bool
 }
 
 type FieldInfo struct {
@@ -127,14 +126,8 @@ func parseTypeInformation(typeInfos *TypeInfos, originalValue reflect.Value, val
 
 	// Check if we have a cached type
 	cachedType := typeInfos.Types[value.Type().Name()]
-	// fmt.Printf("Cached type %+v of name %v in %+v\n", cachedType, value.Type().Name(), typeInfos.Types)
-
-	// Reuse type information if already present
-	if cachedType != nil && cachedType.HasGetBSON == false {
-		// fmt.Printf("HAS GetBSON type CACHED\n")
-		return typeInfos.Types[value.Type().Name()]
-	} else if cachedType != nil && cachedType.HasGetBSON == true {
-		// fmt.Printf("HAS GetBSON type\n")
+	if cachedType != nil {
+		return cachedType
 	}
 
 	// Get the number of fields
@@ -172,15 +165,9 @@ func parseTypeInformation(typeInfos *TypeInfos, originalValue reflect.Value, val
 		typeInfo.FieldsByIndex[index] = &fieldInfo
 	}
 
-	// fmt.Printf("======================= WOW 2 %v\n", originalValue)
-
 	if originalValue.Type().Kind() == reflect.Ptr {
 		// Iterate over all the
 		numberOfMethods := originalValue.NumMethod()
-		// Get the number of Methods
-		typeInfo.NumberOfMethods = numberOfMethods
-
-		// fmt.Printf("======================= number of methods %v\n", numberOfMethods)
 
 		// Iterate over all the fields and collect the metadata
 		for index := 0; index < numberOfMethods; index++ {
@@ -190,13 +177,11 @@ func parseTypeInformation(typeInfos *TypeInfos, originalValue reflect.Value, val
 				typeInfo.HasGetBSON = true
 				break
 			}
-			// fmt.Printf("======================= %v\n", methodType.Name)
 		}
 	}
 
 	// We need to save the type information of the GetBSON method aswell
 	if typeInfo.HasGetBSON {
-		// fmt.Printf("============================ HasGetBSON\n")
 		if vi, ok := originalValue.Interface().(Getter); ok {
 			getv, err := vi.GetBSON()
 			if err != nil {
@@ -208,11 +193,8 @@ func parseTypeInformation(typeInfos *TypeInfos, originalValue reflect.Value, val
 		}
 	}
 
-	// fmt.Printf("============================ HasGetBSON NOT\n")
-
 	// Save type
 	typeInfos.Types[value.Type().Name()] = &typeInfo
-	// fmt.Printf("Cached type %+v of name %v in %+v\n", cachedType, value.Type().Name(), typeInfos.Types)
 	// Return the type information
 	return &typeInfo
 }

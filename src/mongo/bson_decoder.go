@@ -38,8 +38,6 @@ func (p *BSON) Unmarshal(bson []byte, obj interface{}) error {
 		// v := reflect.ValueOf(out)
 		switch value.Kind() {
 		case reflect.Ptr:
-			//  fallthrough
-			// case reflect.Map:
 			value = value.Elem()
 		case reflect.Struct:
 			return errors.New("must be a pointer to a struct or Document")
