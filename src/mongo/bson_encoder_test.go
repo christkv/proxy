@@ -79,6 +79,9 @@ func TestOverflowDefaultBufferSize(t *testing.T) {
 	parser.Marshall(document, nil, 0)
 }
 
+/*
+ * Simple nested document serialization
+ */
 func TestSimpleNestedDocumentSerialization(t *testing.T) {
 	// Expected buffer from serialization
 	var expectedBuffer = []byte{48, 0, 0, 0, 2, 115, 116, 114, 105, 110, 103, 0, 12, 0, 0, 0, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 0, 3, 100, 111, 99, 0, 14, 0, 0, 0, 16, 105, 110, 116, 0, 10, 0, 0, 0, 0, 0}
@@ -106,6 +109,9 @@ func TestSimpleNestedDocumentSerialization(t *testing.T) {
 	DeserializeTest(t, expectedBuffer, &T2{}, &T2{"hello world", &T1{10}})
 }
 
+/*
+ * Replacement GetBSON test
+ */
 type GetBSONT1 struct {
 	Int int32 `bson:"int,omitempty"`
 }
@@ -123,4 +129,111 @@ func TestSimpleGetBSONReplacement(t *testing.T) {
 
 	// Serialize tests
 	SerializeTest(t, &GetBSONT1{10}, expectedBuffer)
+
+	// Deserialize test
+	DeserializeTest(t, expectedBuffer, &GetBSONT1{}, &GetBSONT1{})
+}
+
+type T struct{}
+type T1 struct {
+	Int int32 `bson:"int,omitempty"`
+}
+type T2 struct {
+	String string `bson:"string,omitempty"`
+}
+
+/*
+ * Simple Type serializations
+ */
+func TestTypeSerializations(t *testing.T) {
+	type T struct{}
+	// Expected buffer from serialization
+	var expectedBuffer = []byte{5, 0, 0, 0, 0}
+	// Serialize tests
+	SerializeTest(t, NewDocument(), expectedBuffer)
+	SerializeTest(t, &T{}, expectedBuffer)
+}
+
+func TestDocumentWithInt32Serialization(t *testing.T) {
+	type T struct {
+		Int int32 `bson:"int,omitempty"`
+	}
+	// Expected buffer from serialization
+	var expectedBuffer = []byte{14, 0, 0, 0, 16, 105, 110, 116, 0, 10, 0, 0, 0, 0}
+	// Create document
+	document := NewDocument()
+	document.Add("int", int32(10))
+
+	// Serialize tests
+	SerializeTest(t, document, expectedBuffer)
+	SerializeTest(t, &T{10}, expectedBuffer)
+}
+
+func TestSimpleStringSerialization(t *testing.T) {
+	type T struct {
+		String string `bson:"string,omitempty"`
+	}
+	// Expected buffer from serialization
+	var expectedBuffer = []byte{29, 0, 0, 0, 2, 115, 116, 114, 105, 110, 103, 0, 12, 0, 0, 0, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 0, 0}
+	document := NewDocument()
+	document.Add("string", "hello world")
+
+	// Serialize tests
+	SerializeTest(t, document, expectedBuffer)
+	SerializeTest(t, &T{"hello world"}, expectedBuffer)
+}
+
+func TestSimpleStringAndIntSerialization(t *testing.T) {
+	type T struct {
+		String string `bson:"string,omitempty"`
+		Int    int32  `bson:"int,omitempty"`
+	}
+	// Expected buffer from serialization
+	var expectedBuffer = []byte{38, 0, 0, 0, 2, 115, 116, 114, 105, 110, 103, 0, 12, 0, 0, 0, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 0, 16, 105, 110, 116, 0, 10, 0, 0, 0, 0}
+	document := NewDocument()
+	document.Add("string", "hello world")
+	document.Add("int", int32(10))
+
+	// Serialize tests
+	SerializeTest(t, document, expectedBuffer)
+	SerializeTest(t, &T{"hello world", 10}, expectedBuffer)
+}
+
+func TestSimpleArraySerialization(t *testing.T) {
+	var expectedBuffer = []byte{35, 0, 0, 0, 4, 97, 114, 114, 97, 121, 0, 23, 0, 0, 0, 2, 48, 0, 2, 0, 0, 0, 97, 0, 2, 49, 0, 2, 0, 0, 0, 98, 0, 0, 0}
+	document := NewDocument()
+	array := make([]interface{}, 0)
+	array = append(array, "a")
+	array = append(array, "b")
+	document.Add("array", array)
+
+	// Serialize tests
+	SerializeTest(t, document, expectedBuffer)
+
+	// t.Logf("[%v]", len(bson))
+	// t.Logf("[%v]", bson)
+	// t.Logf("[%v]", expectedBuffer)
+
+	// if err != nil {
+	// 	t.Fatalf("Failed to create bson document %v", err)
+	// }
+
+	// if len(bson) != len(expectedBuffer) {
+	// 	t.Fatalf("Illegal BSON length returned %v = %v", len(bson), len(expectedBuffer))
+	// }
+
+	// if bytes.Compare(bson, expectedBuffer) != 0 {
+	// 	t.Fatalf("Illegal BSON returned")
+	// }
+
+	// // Deserialize the object
+	// obj, err := Deserialize(expectedBuffer)
+	// if err != nil {
+	// 	t.Fatalf("Failed to deserialize the bson array")
+	// }
+
+	// validateObjectSize(t, obj, 1)
+	// a, _ := obj.FieldAsArray("array")
+	// validateString(t, a[0], "a")
+	// validateString(t, a[1], "b")
 }

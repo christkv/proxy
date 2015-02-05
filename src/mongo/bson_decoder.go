@@ -145,6 +145,11 @@ func (p *BSON) addValueToFieldStruct(fieldName string, obj reflect.Value, value 
 	} else {
 		// Get the type info
 		typeInfo := parseTypeInformation(p.typeInfos, obj, obj)
+		// Does not map to any field, ignore it
+		if typeInfo.Fields[fieldName] == nil {
+			return nil
+		}
+
 		structFieldName := typeInfo.Fields[fieldName].Name
 
 		if obj.Kind() == reflect.Ptr {

@@ -9,9 +9,25 @@ import (
 type bsonType byte
 
 const (
-	bsonString   bsonType = 0x02
-	bsonDocument bsonType = 0x03
-	bsonInt32    bsonType = 0x10
+	bsonDouble           bsonType = 0x01
+	bsonString           bsonType = 0x02
+	bsonDocument         bsonType = 0x03
+	bsonArray            bsonType = 0x04
+	bsonBinary           bsonType = 0x05
+	bsonUndefined        bsonType = 0x06
+	bsonObjectId         bsonType = 0x07
+	bsonBoolean          bsonType = 0x08
+	bsonDateTime         bsonType = 0x09
+	bsonNull             bsonType = 0x0a
+	bsonRegExp           bsonType = 0x0b
+	bsonDBPointer        bsonType = 0x0c
+	bsonJavaScript       bsonType = 0x0d
+	bsonJavaScriptWScope bsonType = 0x0f
+	bsonInt32            bsonType = 0x10
+	bsonTimestamp        bsonType = 0x11
+	bsonInt64            bsonType = 0x12
+	bsonMinKey           bsonType = 0xff
+	bsonMaxKey           bsonType = 0x7f
 )
 
 type ObjectId struct {

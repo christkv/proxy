@@ -11,5 +11,8 @@ build:
 execute: build	
 	go run mongor.go
 
+run_test:
+	go test -v mongo -run $(TEST)
+
 run_tests:
-	go test -v mongo -run Serialization
+	go test -v mongo
